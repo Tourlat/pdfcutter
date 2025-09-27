@@ -42,7 +42,7 @@ A command-line tool for manipulating PDF files, including merging, deleting page
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/pdf-manipulator.git
+   git clone https://github.com/tourlat/pdfcutter.git
    ```
 2. Change into the project directory:
    ```
@@ -67,3 +67,5 @@ A command-line tool for manipulating PDF files, including merging, deleting page
 
 
 Still in development. 
+
+Future plans include adding more PDF manipulation features and adding a CLI terminal user interface (TUI) made with RATATUI.
