@@ -57,7 +57,9 @@ A command-line tool for manipulating PDF files, including merging, deleting page
    cargo run -- <command>
    ```  Replace `<command>` with the desired operation (e.g., `merge`, `delete`, `help`).
 
+#### Motivation
 
+This project was created to provide a simple and efficient way to manipulate PDF files from the command line, I wanted to stop using online tools for simple tasks like merging or deleting pages from PDFs. With this tool, users can easily manage their PDF documents without relying on third-party services and can keep their files private.
 
 #### Built With
 
