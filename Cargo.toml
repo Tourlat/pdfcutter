@@ -1,0 +1,20 @@
+[package]
+name = "pdf-manipulator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# TUI
+ratatui = "0.26"       # Terminal UI framework
+crossterm = "0.28"     # Cross-platform terminal backend
+
+# CLI utilities
+clap = { version = "4", features = ["derive"] } # optional if you want CLI + TUI
+indicatif = "0.17"     # Progress bars/spinners
+
+# PDF handling
+lopdf = "0.38.0"         # Low-level PDF editing (merging, splitting, watermarking)
+printpdf = "0.5"       # High-level creation (for watermarking pages)
+
+# Error handling
+anyhow = "1.0"         # Easy error handling
