@@ -1,4 +1,4 @@
-### PDF Manipulator
+### PDF Cutter
 
 A command-line tool for manipulating PDF files, including merging, deleting pages. Built with Rust for performance and safety.
 
