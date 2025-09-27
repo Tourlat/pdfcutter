@@ -4,9 +4,10 @@ use clap::Parser;
 use anyhow::{Result, bail};
 use std::path::Path;
 
-/// Simple CLI to merge multiple PDFs into one or delete pages from a PDF
+/// PDF Cutter - A CLI tool for merging and deleting pages from PDF files
+
 #[derive(Parser, Debug)]
-#[command(author, version, about)]
+#[command(author, version, override_usage = "cargo run -- -<COMMAND> -<COMMAND_ARGS>")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
