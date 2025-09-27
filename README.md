@@ -10,21 +10,21 @@ A command-line tool for manipulating PDF files, including merging, deleting page
 #### Usage
 - **Merge PDFs**:
   ```
-  cargo run -- merge -o output.pdf input1.pdf input2.pdf input3.pdf
+  cargo run -- merge -o <output_path> <input_path> <input_path> ...
   ```
 - **Delete Pages**:
     - Delete page 1:
         ```
-        cargo run -- delete -i tests/tests_pdf/a.pdf -o output.pdf -p "1"
+        cargo run -- delete -i <pdf_path> -o <output_path> -p "1"
         ```
     - Delete pages 3 to 5:
         ```
-        cargo run -- delete -i tests/tests_pdf/a.pdf -o output.pdf -p "3-5"
+        cargo run -- delete -i <pdf_path> -o <output_path> -p "3-5"
         ```
     - Delete pages 1, 3, and 5 to 7:
         ```
-        cargo run -- delete -i tests/tests_pdf/a.pdf -o output.pdf -p "1,3,5-7"
-        
+        cargo run -- delete -i <pdf_path> -o <output_path> -p "1,3,5-7"
+
         ```
 #### Examples
 
