@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 # TUI
-ratatui = "0.26"       # Terminal UI framework
+ratatui = "0.29"       # Terminal UI framework
 crossterm = "0.28"     # Cross-platform terminal backend
 
 # CLI utilities

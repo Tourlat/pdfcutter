@@ -1,14 +1,21 @@
 use anyhow::{Result, bail};
 use std::path::Path;
 use crate::pdf;
+use crate::tui;
 use super::commands::Commands;
 
-pub fn handle_command(command: Commands) -> Result<()> {
+pub fn handle_command(command: Option<Commands>) -> Result<()> {
+  
     match command {
-        Commands::Merge { inputs, output } => handle_merge(inputs, output),
-        Commands::Delete { input, output, pages } => handle_delete(input, output, pages),
+        Some(Commands::Tui) =>   return tui::run(),
+        Some(Commands::Merge { inputs, output }) => handle_merge(inputs, output),
+        Some(Commands::Delete { input, output, pages }) => handle_delete(input, output, pages),
+        None => {
+            bail!("No command provided. Use --help for usage or --tui for interactive mode.");
+        }
     }
 }
+
 
 fn handle_merge(inputs: Vec<String>, output: String) -> Result<()> {
     if inputs.len() < 2 {

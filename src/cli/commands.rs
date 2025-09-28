@@ -34,4 +34,7 @@ pub enum Commands {
         #[arg(short = 'p', long)]
         pages: String,
     },
+
+    /// Launch Terminal User Interface
+    Tui,
 }
