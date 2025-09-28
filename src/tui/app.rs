@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-
 pub enum CurrentScreen {
     Main,
     FileSelection,
@@ -12,6 +11,7 @@ pub enum CurrentScreen {
     Exiting,
 }
 
+#[derive(PartialEq)]
 pub enum OperationMode {
     None,
     Merge,
@@ -19,7 +19,7 @@ pub enum OperationMode {
 }
 
 pub struct App {
-    pub current_screen: CurrentScreen, 
+    pub current_screen: CurrentScreen,
     pub operation_mode: OperationMode,
 
     pub selected_files: Vec<String>,
@@ -29,9 +29,11 @@ pub struct App {
     pub error_message: Option<String>,
     pub success_message: Option<String>,
 
-    pub current_input: Option<String>,        // Input text 
-    pub selected_file_index: usize,   
-    pub input_mode: bool,  
+    pub current_input: Option<String>, // Input text
+    pub selected_file_index: usize,
+    pub input_mode: bool,
+    pub editing_output: bool,    //
+    pub merge_file_index: usize, //
 }
 
 impl App {
@@ -47,11 +49,12 @@ impl App {
             input_mode: false,
             selected_file_index: 0,
             current_input: None,
-
+            editing_output: false,
+            merge_file_index: 0,
         }
     }
 
-     pub fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.selected_files.clear();
         self.output_filename.clear();
         self.pages_to_delete.clear();
