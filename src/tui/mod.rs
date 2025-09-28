@@ -61,6 +61,10 @@ fn run_app<B: ratatui::backend::Backend>(
                 },
                 CurrentScreen::FileSelection => handle_file_selection_input(key.code, app),
                 CurrentScreen::MergeConfig => handle_merge_config_input(key.code, app),
+                CurrentScreen::DeleteConfig => handle_delete_config_input(key.code, app),
+                CurrentScreen::Result => match key.code {
+                    _ => app.current_screen = CurrentScreen::Main,
+                },
 
                 _ => {
                     if key.code == KeyCode::Esc {
@@ -73,6 +77,7 @@ fn run_app<B: ratatui::backend::Backend>(
 }
 
 fn handle_main_input(key: KeyCode, app: &mut App) {
+    app.reset();
     match key {
         KeyCode::Char('q') | KeyCode::Char('Q') => {
             app.current_screen = CurrentScreen::Exiting;
@@ -92,6 +97,12 @@ fn handle_main_input(key: KeyCode, app: &mut App) {
     }
 }
 
+/**
+ * Handle input in the file selection screen.
+ * Allows adding/removing files, navigating the list, and proceeding to the next configuration screen.
+ * @param key The key event.
+ * @param app The application state.
+ */
 fn handle_file_selection_input(key: KeyCode, app: &mut App) {
     if app.error_message.is_some() && key != KeyCode::Esc {
         // Clear error on any key except Esc
@@ -175,6 +186,210 @@ fn handle_file_selection_input(key: KeyCode, app: &mut App) {
     }
 }
 
+/**
+ * Handle input in the delete configuration screen.
+ * Allows editing output filename, specifying pages to delete, and starting the deletion.
+ * @param key The key event.
+ * @param app The application state.
+ * 
+ */
+fn handle_delete_config_input(key: KeyCode, app: &mut App) {
+    if app.error_message.is_some() && key != KeyCode::Esc {
+        app.error_message = None;
+        return;
+    }
+
+    if app.editing_pages {
+        match key {
+            KeyCode::Char(c) => {
+                app.pages_to_delete.push(c);
+            }
+            KeyCode::Backspace => {
+                app.pages_to_delete.pop();
+            }
+            KeyCode::Enter | KeyCode::Tab => {
+                app.editing_pages = false;
+
+                if !app.pages_to_delete.is_empty() {
+                    if let Err(e) = validate_page_ranges(&app.pages_to_delete) {
+                        app.set_error(format!("Invalid page format: {}", e));
+                    }
+                }
+            }
+            KeyCode::Esc => {
+                app.editing_pages = false;
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    if app.editing_output {
+        match key {
+            KeyCode::Char(c) => {
+                app.output_filename.push(c);
+            }
+            KeyCode::Backspace => {
+                app.output_filename.pop();
+            }
+            KeyCode::Enter | KeyCode::Tab => {
+                app.editing_output = false;
+
+                // Ajouter .pdf si pas déjà présent
+                if !app.output_filename.ends_with(".pdf") && !app.output_filename.is_empty() {
+                    app.output_filename.push_str(".pdf");
+                }
+
+                // Nom par défaut si vide
+                if app.output_filename.is_empty() {
+                    app.output_filename = "output_deleted_pages.pdf".to_string();
+                }
+            }
+            KeyCode::Esc => {
+                app.editing_output = false;
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    match key {
+        KeyCode::Char('p') | KeyCode::Char('P') => {
+            app.editing_pages = true;
+        }
+
+        KeyCode::Tab => {
+            app.editing_output = true;
+        }
+
+        KeyCode::Enter => {
+            if app.selected_files.is_empty() {
+                app.set_error("No file selected".to_string());
+            } else if app.pages_to_delete.is_empty() {
+                app.set_error("Please specify pages to delete".to_string());
+            } else if app.output_filename.is_empty() {
+                app.set_error("Output filename cannot be empty".to_string());
+            } else {
+                match validate_page_ranges(&app.pages_to_delete) {
+                    Ok(_) => {
+                        perform_delete(app);
+                    }
+                    Err(e) => {
+                        app.set_error(format!("Invalid page format: {}", e));
+                    }
+                }
+            }
+        }
+
+        KeyCode::Esc => {
+            app.current_screen = CurrentScreen::FileSelection;
+        }
+
+        _ => {}
+    }
+}
+
+/**
+ * Validate and parse a string of page ranges into a vector of page numbers.
+ * Supports formats like "1,3,5-7".
+ * @param pages_str The input string specifying pages/ranges.
+ * @returns A Result containing a vector of unique page numbers or an error message.
+ */
+fn validate_page_ranges(pages_str: &str) -> Result<Vec<u32>, String> {
+    let mut pages = Vec::new();
+
+    for part in pages_str.split(',') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+
+        if part.contains('-') {
+            let range_parts: Vec<&str> = part.split('-').collect();
+            if range_parts.len() != 2 {
+                return Err(format!("Invalid range format: '{}'", part));
+            }
+
+            let start: u32 = range_parts[0]
+                .trim()
+                .parse()
+                .map_err(|_| format!("Invalid page number: '{}'", range_parts[0]))?;
+            let end: u32 = range_parts[1]
+                .trim()
+                .parse()
+                .map_err(|_| format!("Invalid page number: '{}'", range_parts[1]))?;
+
+            if start > end {
+                return Err(format!("Invalid range: {} > {}", start, end));
+            }
+
+            if start == 0 || end == 0 {
+                return Err("Page numbers must be greater than 0".to_string());
+            }
+
+            for page in start..=end {
+                pages.push(page);
+            }
+        } else {
+            let page: u32 = part
+                .parse()
+                .map_err(|_| format!("Invalid page number: '{}'", part))?;
+
+            if page == 0 {
+                return Err("Page numbers must be greater than 0".to_string());
+            }
+
+            pages.push(page);
+        }
+    }
+
+    if pages.is_empty() {
+        return Err("No valid pages specified".to_string());
+    }
+
+    pages.sort();
+    pages.dedup();
+    Ok(pages)
+}
+
+/**
+ * Perform the PDF page deletion operation using the selected file, pages to delete, and output filename.
+ * Updates the app state with success or error messages.
+ * @param app The application state.
+ * @returns Nothing. Updates app state directly.
+ */
+fn perform_delete(app: &mut App) {
+    use crate::pdf;
+
+    if let Ok(pages_to_delete) = validate_page_ranges(&app.pages_to_delete) {
+        match pdf::delete_pages(
+            &app.selected_files[0],
+            &app.output_filename,
+            &pages_to_delete,
+        ) {
+            Ok(()) => {
+                app.set_success(format!(
+                    "✅ Successfully deleted pages {} from '{}' and saved to '{}'",
+                    app.pages_to_delete, app.selected_files[0], app.output_filename
+                ));
+                app.current_screen = CurrentScreen::Result;
+            }
+            Err(e) => {
+                app.set_error(format!("Failed to delete pages: {}", e));
+                app.current_screen = CurrentScreen::Result;
+            }
+        }
+    }
+}
+
+
+/**
+ * Handle input in the merge configuration screen.
+ * Allows editing output filename, reordering files, and starting the merge.
+ * @param key The key event.
+ * @param app The application state.
+ * 
+ */
 fn handle_merge_config_input(key: KeyCode, app: &mut App) {
     if app.error_message.is_some() && key != KeyCode::Esc {
         // Clear error on any key except Esc
@@ -193,6 +408,9 @@ fn handle_merge_config_input(key: KeyCode, app: &mut App) {
             KeyCode::Enter => {
                 if !app.output_filename.is_empty() {
                     app.editing_output = false;
+                    if !app.output_filename.ends_with(".pdf") && !app.output_filename.is_empty() {
+                        app.output_filename.push_str(".pdf");
+                    }
                 } else {
                     app.set_error("Output filename cannot be empty".to_string());
                 }
@@ -240,6 +458,13 @@ fn handle_merge_config_input(key: KeyCode, app: &mut App) {
     }
 }
 
+
+/**
+ * Perform the PDF merge operation using the selected files and output filename.
+ * Updates the app state with success or error messages.
+ * @param app The application state.
+ * @retiurns Nothing. Updates app state directly.
+ */
 fn perform_merge(app: &mut App) {
     use crate::pdf;
 

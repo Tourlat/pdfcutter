@@ -49,7 +49,7 @@ macro_rules! app_theme {
     };
 }
 
-// Macros pour créer des widgets avec le thème
+// Macros for widget theming
 macro_rules! themed_widget {
     (title, $text:expr) => {
         Paragraph::new($text)
@@ -84,13 +84,20 @@ pub fn ui(frame: &mut Frame, app: &App) {
         CurrentScreen::FileSelection => draw_file_selection_screen(frame, app),
         CurrentScreen::MergeConfig => draw_merge_config_screen(frame, app),
         CurrentScreen::DeleteConfig => draw_delete_config_screen(frame, app),
-        CurrentScreen::Processing => draw_processing_screen(frame, app),
+        // CurrentScreen::Processing => draw_processing_screen(frame, app),
         CurrentScreen::Result => draw_result_screen(frame, app),
-        CurrentScreen::Help => draw_help_screen(frame, app),
+        CurrentScreen::Help => draw_help_screen(frame),
         CurrentScreen::Exiting => draw_exit_screen(frame, app),
     }
 }
 
+
+/**
+ * Draw the main screen UI.
+ * Display the title, menu options, and footer.
+ * @param frame The frame to draw on.
+ * @param app The application state.
+ */
 fn draw_main_screen(frame: &mut Frame, _app: &App) {
     let area = frame.area();
 
@@ -129,6 +136,11 @@ fn draw_main_screen(frame: &mut Frame, _app: &App) {
     frame.render_widget(footer, chunks[2]);
 }
 
+/** 
+ * Draw the file selection screen UI.
+ * Display selected files, input for adding files, and footer instructions.
+ * 
+*/
 fn draw_file_selection_screen(frame: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -197,6 +209,10 @@ fn draw_file_selection_screen(frame: &mut Frame, app: &App) {
     }
 }
 
+/**
+ * Draw the merge configuration screen UI.
+ * Display selected files, output filename input, and footer instructions.
+ */
 fn draw_merge_config_screen(frame: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -267,16 +283,116 @@ fn draw_merge_config_screen(frame: &mut Frame, app: &App) {
     }
 }
 
+/**
+ * Draw the delete configuration screen UI.
+ * Display selected files, pages to delete input, output filename input, and footer instructions.
+ */
 fn draw_delete_config_screen(frame: &mut Frame, app: &App) {
-    // TODO: Implement delete config screen
-    return;
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // Title
+            Constraint::Min(0),    // File name
+            Constraint::Length(5), // Page deletion input
+            Constraint::Length(5), // Output filename
+            Constraint::Length(3), // Instructions
+        ])
+        .split(frame.area());
+
+    let title_text = "✂️ Delete Configuration";
+    let title = themed_widget!(title, title_text);
+    frame.render_widget(title, chunks[0]);
+
+    let file_items: Vec<ListItem> = app
+        .selected_files
+        .iter()
+        .enumerate()
+        .map(|(i, file)| ListItem::new(format!("{}. {}", i + 1, file)))
+        .collect();
+
+    let file_list = List::new(file_items)
+        .block(
+            Block::default()
+                .title("File to Delete Pages From")
+                .borders(Borders::ALL),
+        )
+        .style(app_theme!(normal))
+        .highlight_style(app_theme!(highlight))
+        .highlight_symbol("▶ ");
+
+    frame.render_stateful_widget(
+        file_list,
+        chunks[1],
+        &mut ListState::default().with_selected(Some(app.merge_file_index)),
+    );
+
+    let pages_text = if app.pages_to_delete.is_empty() {
+        "".to_string()
+    } else {
+        app.pages_to_delete.clone()
+    };
+
+    let pages_field = if app.editing_pages {
+        Paragraph::new(format!("Pages to Delete: {}", pages_text))
+            .style(app_theme!(input).add_modifier(Modifier::UNDERLINED))
+            .block(
+                Block::default()
+                    .title("Pages to Delete (e.g., 1,3-5)")
+                    .borders(Borders::ALL),
+            )
+    } else {
+        themed_widget!(
+            input,
+            format!("Pages to Delete: {}", pages_text),
+            "Pages to Delete (e.g., 1,3-5)"
+        )
+    };
+
+    frame.render_widget(pages_field, chunks[2]);
+
+    let output_text = if app.output_filename.is_empty() {
+        "merged_output.pdf".to_string()
+    } else {
+        app.output_filename.clone()
+    };
+
+    let output_title = if app.editing_output {
+        "Output Filename (editing)"
+    } else {
+        "Output Filename"
+    };
+
+    let output_field = if app.editing_output {
+        Paragraph::new(format!("Output: {}", output_text))
+            .style(app_theme!(input).add_modifier(Modifier::UNDERLINED))
+            .block(Block::default().title(output_title).borders(Borders::ALL))
+    } else {
+        themed_widget!(input, format!("Output: {}", output_text), output_title)
+    };
+    frame.render_widget(output_field, chunks[3]);
+
+    let instructions = themed_widget!(
+        footer,
+        "p: Edit pages to delete • Tab: Edit output name • Enter: Start merge • Esc: Back"
+    );
+    frame.render_widget(instructions, chunks[4]);
+
+    if let Some(error) = &app.error_message {
+        draw_error_popup(frame, error);
+    }
 }
 
-fn draw_processing_screen(frame: &mut Frame, app: &App) {
-    // TODO: Implement processing screen
-    return;
-}
+// fn draw_processing_screen(frame: &mut Frame, app: &App) {
+//     // TODO: Implement processing screen
+//     return;
+// }
 
+/**
+ * Draw the result screen UI.
+ * Display success or error message after operation.
+ * @param frame The frame to draw on.
+ * @param app The application state.
+ */
 fn draw_result_screen(frame: &mut Frame, app: &App) {
     frame.render_widget(Clear, frame.area());
 
@@ -304,8 +420,8 @@ fn draw_result_screen(frame: &mut Frame, app: &App) {
     frame.render_widget(result_paragraph, area);
 }
 
-fn draw_help_screen(frame: &mut Frame, app: &App) {
-     let chunks = Layout::default()
+fn draw_help_screen(frame: &mut Frame) {
+    let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3), // Title
@@ -317,7 +433,7 @@ fn draw_help_screen(frame: &mut Frame, app: &App) {
     let title_text = "❓ Help";
     let title = themed_widget!(title, title_text);
     frame.render_widget(title, chunks[0]);
-    
+
     let help_text = Text::from_iter([
         Line::from("📄 PDF Cutter TUI Help"),
         Line::from(""),

@@ -1,11 +1,9 @@
-use std::collections::HashMap;
-
 pub enum CurrentScreen {
     Main,
     FileSelection,
     MergeConfig,
     DeleteConfig,
-    Processing,
+    // Processing,
     Result,
     Help,
     Exiting,
@@ -31,9 +29,9 @@ pub struct App {
 
     pub current_input: Option<String>, // Input text
     pub selected_file_index: usize,
-    pub input_mode: bool,
-    pub editing_output: bool,    //
-    pub merge_file_index: usize, //
+    pub editing_output: bool,
+    pub editing_pages: bool,
+    pub merge_file_index: usize,
 }
 
 impl App {
@@ -46,11 +44,11 @@ impl App {
             pages_to_delete: String::new(),
             error_message: None,
             success_message: None,
-            input_mode: false,
             selected_file_index: 0,
             current_input: None,
             editing_output: false,
             merge_file_index: 0,
+            editing_pages: false,
         }
     }
 
