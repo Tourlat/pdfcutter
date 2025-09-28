@@ -7,7 +7,23 @@ A command-line tool for manipulating PDF files, including merging, deleting page
 - **Merge PDFs**: Combine multiple PDF files into one.
 - **Delete Pages**: Remove specific pages from a PDF file.
 
-#### Usage
+### Usage
+
+## In the TUI
+
+1. Run the application:
+   ```
+   cargo run -- tui
+   ```
+2. Use the arrow keys to navigate and Enter to select options.
+3. Follow the prompts to select files and specify operations.
+
+### Here an example of how to use the TUI to merge PDFs:
+
+![TUI Merge Example](tests/pdfcutter-gif.gif)
+
+
+## In the Command Line
 - **Merge PDFs**:
   ```
   cargo run -- merge -o <output_path> <input_path> <input_path> ...
@@ -67,7 +83,9 @@ This project was created to provide a simple and efficient way to manipulate PDF
 
 - [clap](https://crates.io/crates/clap): Command-line argument parsing.
 
+- [RATATUI](https://crates.io/crates/ratatui): Terminal user interface library.
+
 
 Still in development. 
 
-Future plans include adding more PDF manipulation features and adding a CLI terminal user interface (TUI) made with RATATUI.
+Future plans include adding more PDF manipulation features like splitting.

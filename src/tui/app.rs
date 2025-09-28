@@ -32,6 +32,8 @@ pub struct App {
     pub editing_output: bool,
     pub editing_pages: bool,
     pub merge_file_index: usize,
+
+    pub menu_mode_index: usize,
 }
 
 impl App {
@@ -49,6 +51,7 @@ impl App {
             editing_output: false,
             merge_file_index: 0,
             editing_pages: false,
+            menu_mode_index: 0,
         }
     }
 
@@ -60,6 +63,12 @@ impl App {
         self.success_message = None;
         self.operation_mode = OperationMode::None;
         self.current_screen = CurrentScreen::Main;
+        self.selected_file_index = 0;
+        self.current_input = None;
+        self.editing_output = false;
+        self.merge_file_index = 0;
+        self.editing_pages = false;
+        self.menu_mode_index = 0;   
     }
 
     pub fn set_error(&mut self, message: String) {

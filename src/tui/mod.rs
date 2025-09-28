@@ -62,9 +62,7 @@ fn run_app<B: ratatui::backend::Backend>(
                 CurrentScreen::FileSelection => handle_file_selection_input(key.code, app),
                 CurrentScreen::MergeConfig => handle_merge_config_input(key.code, app),
                 CurrentScreen::DeleteConfig => handle_delete_config_input(key.code, app),
-                CurrentScreen::Result => match key.code {
-                    _ => app.current_screen = CurrentScreen::Main,
-                },
+                CurrentScreen::Result => handle_result_input(key.code, app),
 
                 _ => {
                     if key.code == KeyCode::Esc {
@@ -77,21 +75,61 @@ fn run_app<B: ratatui::backend::Backend>(
 }
 
 fn handle_main_input(key: KeyCode, app: &mut App) {
-    app.reset();
     match key {
         KeyCode::Char('q') | KeyCode::Char('Q') => {
             app.current_screen = CurrentScreen::Exiting;
         }
         KeyCode::Char('1') => {
+            app.reset();
+            app.menu_mode_index = 0;
             app.operation_mode = app::OperationMode::Merge;
             app.current_screen = CurrentScreen::FileSelection;
         }
         KeyCode::Char('2') => {
+            app.reset();
+            app.menu_mode_index = 1;
             app.operation_mode = app::OperationMode::Delete;
             app.current_screen = CurrentScreen::FileSelection;
         }
         KeyCode::Char('3') => {
+            app.menu_mode_index = 2;
             app.current_screen = CurrentScreen::Help;
+        }
+        KeyCode::Up => {
+            if app.menu_mode_index > 0 {
+                app.menu_mode_index -= 1;
+            } else {
+                app.menu_mode_index = 3;
+            }
+        }
+        KeyCode::Down => {
+            if app.menu_mode_index < 3 {
+                app.menu_mode_index += 1;
+            } else {
+                app.menu_mode_index = 0;
+            }
+        }
+        KeyCode::Enter => match app.menu_mode_index {
+            0 => {
+                app.reset();
+                app.operation_mode = OperationMode::Merge;
+                app.current_screen = CurrentScreen::FileSelection;
+            }
+            1 => {
+                app.reset();
+                app.operation_mode = OperationMode::Delete;
+                app.current_screen = CurrentScreen::FileSelection;
+            }
+            2 => {
+                app.current_screen = CurrentScreen::Help;
+            }
+            3 => {
+                app.current_screen = CurrentScreen::Exiting;
+            }
+            _ => {}
+        },
+        KeyCode::Esc => {
+            app.current_screen = CurrentScreen::Exiting;
         }
         _ => {}
     }
@@ -191,7 +229,7 @@ fn handle_file_selection_input(key: KeyCode, app: &mut App) {
  * Allows editing output filename, specifying pages to delete, and starting the deletion.
  * @param key The key event.
  * @param app The application state.
- * 
+ *
  */
 fn handle_delete_config_input(key: KeyCode, app: &mut App) {
     if app.error_message.is_some() && key != KeyCode::Esc {
@@ -382,13 +420,12 @@ fn perform_delete(app: &mut App) {
     }
 }
 
-
 /**
  * Handle input in the merge configuration screen.
  * Allows editing output filename, reordering files, and starting the merge.
  * @param key The key event.
  * @param app The application state.
- * 
+ *
  */
 fn handle_merge_config_input(key: KeyCode, app: &mut App) {
     if app.error_message.is_some() && key != KeyCode::Esc {
@@ -458,7 +495,6 @@ fn handle_merge_config_input(key: KeyCode, app: &mut App) {
     }
 }
 
-
 /**
  * Perform the PDF merge operation using the selected files and output filename.
  * Updates the app state with success or error messages.
@@ -481,5 +517,20 @@ fn perform_merge(app: &mut App) {
             app.set_error(format!("Failed to merge PDFs: {}", e));
             app.current_screen = CurrentScreen::Result;
         }
+    }
+}
+
+/**
+ * Handle input in the result screen.
+ * Shows success/error messages and allows returning to main menu.
+ * @param key The key event.
+ * @param app The application state.
+ */
+fn handle_result_input(key: KeyCode, app: &mut App) {
+    match key {
+        KeyCode::Esc | KeyCode::Enter | KeyCode::Char(' ') => {
+            app.current_screen = CurrentScreen::Main;
+        }
+        _ => {}
     }
 }

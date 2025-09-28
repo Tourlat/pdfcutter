@@ -91,7 +91,6 @@ pub fn ui(frame: &mut Frame, app: &App) {
     }
 }
 
-
 /**
  * Draw the main screen UI.
  * Display the title, menu options, and footer.
@@ -128,18 +127,27 @@ fn draw_main_screen(frame: &mut Frame, _app: &App) {
                 .title("Select Operation")
                 .borders(Borders::ALL),
         )
-        .style(app_theme!(normal));
+        .style(app_theme!(normal))
+        .highlight_style(app_theme!(highlight))
+        .highlight_symbol("▶ ");
 
-    frame.render_widget(menu, chunks[1]);
+    frame.render_stateful_widget(
+        menu,
+        chunks[1],
+        &mut ListState::default().with_selected(Some(_app.menu_mode_index)),
+    );
 
-    let footer = themed_widget!(footer, "Press number keys to select • q: Quit");
+    let footer = themed_widget!(
+        footer,
+        "↑↓: Navigate | Enter: Select | 1-3: Direct select | q: Quit"
+    );
     frame.render_widget(footer, chunks[2]);
 }
 
-/** 
+/**
  * Draw the file selection screen UI.
  * Display selected files, input for adding files, and footer instructions.
- * 
+ *
 */
 fn draw_file_selection_screen(frame: &mut Frame, app: &App) {
     let chunks = Layout::default()
@@ -509,6 +517,7 @@ fn draw_error_popup(frame: &mut Frame, message: &str) {
     let area = centered_rect(60, 25, frame.area());
     frame.render_widget(error_paragraph, area);
 }
+
 // Helper function to create a centered rectangle
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::default()
