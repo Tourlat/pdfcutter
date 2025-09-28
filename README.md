@@ -44,13 +44,17 @@ A command-line tool for manipulating PDF files, including merging, deleting page
         ```
 #### Examples
 
+- Merge `a.pdf` and `b.pdf` into `merged.pdf`:
+  ```
+  cargo run -- merge -o merged.pdf tests/tests_pdf/a.pdf tests/tests_pdf/b.pdf
+  ```
 - Remove the first page of `a.pdf`:
   ```
-  cargo run -- delete -i tests/tests_pdf/a.pdf -o test_sans_page1.pdf -p "1"
+  cargo run -- delete -i tests/tests_pdf/a.pdf -o test_without_page1.pdf -p "1"
   ```
 - Remove pages 2 and 3:
   ```
-  cargo run -- delete -i tests/tests_pdf/a.pdf -o test_sans_pages2-3.pdf -p "2-3"
+  cargo run -- delete -i tests/tests_pdf/a.pdf -o test_without_pages2-3.pdf -p "2-3"
   ```
 
 
