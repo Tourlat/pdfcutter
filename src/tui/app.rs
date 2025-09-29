@@ -1,3 +1,4 @@
+#[derive(Debug, PartialEq)]
 pub enum CurrentScreen {
     Main,
     FileSelection,
@@ -9,7 +10,7 @@ pub enum CurrentScreen {
     Exiting,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum OperationMode {
     None,
     Merge,
