@@ -139,7 +139,7 @@ fn draw_main_screen(frame: &mut Frame, _app: &App) {
 
     let footer = themed_widget!(
         footer,
-        "↑↓: Navigate | Enter: Select | 1-3: Direct select | q: Quit"
+        "↑↓: Navigate • Enter: Select • 1-3: Direct select • q: Quit"
     );
     frame.render_widget(footer, chunks[2]);
 }
@@ -187,11 +187,12 @@ fn draw_file_selection_screen(frame: &mut Frame, app: &App) {
         .highlight_style(app_theme!(highlight))
         .highlight_symbol("▶ ");
 
-    frame.render_stateful_widget(
-        file_list,
-        chunks[1],
-        &mut ListState::default().with_selected(Some(app.selected_file_index)),
-    );
+    let mut list_state = ListState::default();
+    if !app.selected_files.is_empty() && app.selected_file_index < app.selected_files.len() {
+        list_state.select(Some(app.selected_file_index));
+    }
+
+    frame.render_stateful_widget(file_list, chunks[1], &mut list_state);
 
     let binding = String::new();
     let input_text = app.current_input.as_ref().unwrap_or(&binding);
@@ -208,7 +209,7 @@ fn draw_file_selection_screen(frame: &mut Frame, app: &App) {
 
     let footer = themed_widget!(
         footer,
-        "Enter: Add file | <- : Remove selected | -> : Continue | Esc: Back"
+        "Enter: Add file • ↑↓: Navigate • Reorder: Alt+↑/↓ • <- : Remove selected • -> : Continue • Esc: Back"
     );
     frame.render_widget(footer, chunks[3]);
 
