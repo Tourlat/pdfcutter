@@ -903,27 +903,27 @@ mod tests {
 
         // Test moving file down with Ctrl+Down
         app.selected_file_index = 0;
-        handle_file_selection_input(KeyCode::Down, KeyModifiers::CONTROL, &mut app);
+        handle_file_selection_input(KeyCode::Down, KeyModifiers::ALT, &mut app);
         assert_eq!(app.selected_file_index, 1);
         assert_eq!(app.selected_files[0], "file2.pdf");
         assert_eq!(app.selected_files[1], "file1.pdf");
         assert_eq!(app.selected_files[2], "file3.pdf");
 
         // Test moving file up with Ctrl+Up
-        handle_file_selection_input(KeyCode::Up, KeyModifiers::CONTROL, &mut app);
+        handle_file_selection_input(KeyCode::Up, KeyModifiers::ALT, &mut app);
         assert_eq!(app.selected_file_index, 0);
         assert_eq!(app.selected_files[0], "file1.pdf");
         assert_eq!(app.selected_files[1], "file2.pdf");
         assert_eq!(app.selected_files[2], "file3.pdf");
 
         // Test boundary conditions - can't move up from index 0
-        handle_file_selection_input(KeyCode::Up, KeyModifiers::CONTROL, &mut app);
+        handle_file_selection_input(KeyCode::Up, KeyModifiers::ALT, &mut app);
         assert_eq!(app.selected_file_index, 0);
         assert_eq!(app.selected_files[0], "file1.pdf");
 
         // Test boundary conditions - can't move down from last index
         app.selected_file_index = 2;
-        handle_file_selection_input(KeyCode::Down, KeyModifiers::CONTROL, &mut app);
+        handle_file_selection_input(KeyCode::Down, KeyModifiers::ALT, &mut app);
         assert_eq!(app.selected_file_index, 2);
         assert_eq!(app.selected_files[2], "file3.pdf");
     }
