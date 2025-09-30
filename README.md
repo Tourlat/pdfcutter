@@ -57,8 +57,16 @@ A command-line tool for manipulating PDF files, including merging, deleting page
   cargo run -- delete -i tests/tests_pdf/a.pdf -o test_without_pages2-3.pdf -p "2-3"
   ```
 
-
 ### How to Build and Run
+
+#### Precompiled Binaries
+You can download precompiled binaries from the [Releases](https://github.com/tourlat/pdfcutter/releases) page.
+
+Warning: These binaries are built on Linux, so the Windows binary may not work on all systems.
+
+We recommend building from source for the best compatibility or using Windows Subsystem for Linux (WSL) on Windows.
+
+#### By Cloning the Repository (need Rust and Cargo installed)
 
 1. Clone the repository:
    ```
@@ -70,7 +78,7 @@ A command-line tool for manipulating PDF files, including merging, deleting page
    ```
 3. Build the project:
    ```
-   cargo build --release
+   cargo build 
    ```
 4. Run the project:
    ```
