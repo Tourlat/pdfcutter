@@ -360,7 +360,7 @@ fn draw_delete_config_screen(frame: &mut Frame, app: &App) {
     frame.render_widget(pages_field, chunks[2]);
 
     let output_text = if app.output_filename.is_empty() {
-        "merged_output.pdf".to_string()
+        "modified_output.pdf".to_string()
     } else {
         app.output_filename.clone()
     };
@@ -382,7 +382,7 @@ fn draw_delete_config_screen(frame: &mut Frame, app: &App) {
 
     let instructions = themed_widget!(
         footer,
-        "p: Edit pages to delete • Tab: Edit output name • Enter: Start merge • Esc: Back"
+        "p: Edit pages to delete • Tab: Edit output name • Enter: Start delete • Esc: Back"
     );
     frame.render_widget(instructions, chunks[4]);
 
