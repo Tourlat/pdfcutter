@@ -1,103 +1,144 @@
-### PDF Cutter
+# PDF Cutter
 
-A command-line tool for manipulating PDF files, including merging, deleting pages. Built with Rust for performance and safety.
-
-#### Features
-
-- **Merge PDFs**: Combine multiple PDF files into one.
-- **Delete Pages**: Remove specific pages from a PDF file.
-
-### Usage
-
-## In the TUI
-
-1. Run the application:
-   ```
-   cargo run -- tui
-   ```
-2. Use the arrow keys to navigate and Enter to select options.
-3. Follow the prompts to select files and specify operations.
-
-### Here an example of how to use the TUI to merge PDFs:
+A command-line tool for manipulating PDF files, including merging and deleting pages. Built with Rust for performance and safety.
 
 ![TUI Merge Example](tests/pdfcutter-gif.gif)
 
+## Features
 
-## In the Command Line
-- **Merge PDFs**:
-  ```
-  cargo run -- merge -o <output_path> <input_path> <input_path> ...
-  ```
-- **Delete Pages**:
-    - Delete page 1:
-        ```
-        cargo run -- delete -i <pdf_path> -o <output_path> -p "1"
-        ```
-    - Delete pages 3 to 5:
-        ```
-        cargo run -- delete -i <pdf_path> -o <output_path> -p "3-5"
-        ```
-    - Delete pages 1, 3, and 5 to 7:
-        ```
-        cargo run -- delete -i <pdf_path> -o <output_path> -p "1,3,5-7"
+- **Merge PDFs**: Combine multiple PDF files into one
+- **Delete Pages**: Remove specific pages from a PDF file
+- **Interactive TUI**: User-friendly terminal interface
+- **Command Line**: Scriptable CLI interface
+- **Privacy-First**: Process files locally, no cloud upload required
 
-        ```
-#### Examples
+## Quick Start
 
-- Merge `a.pdf` and `b.pdf` into `merged.pdf`:
-  ```
-  cargo run -- merge -o merged.pdf tests/tests_pdf/a.pdf tests/tests_pdf/b.pdf
-  ```
-- Remove the first page of `a.pdf`:
-  ```
-  cargo run -- delete -i tests/tests_pdf/a.pdf -o test_without_page1.pdf -p "1"
-  ```
-- Remove pages 2 and 3:
-  ```
-  cargo run -- delete -i tests/tests_pdf/a.pdf -o test_without_pages2-3.pdf -p "2-3"
-  ```
+### Using Precompiled Binaries
 
-### How to Build and Run
+Download the latest release from the [Releases](https://github.com/tourlat/pdfcutter/releases) page:
 
-#### Precompiled Binaries
-You can download precompiled binaries from the [Releases](https://github.com/tourlat/pdfcutter/releases) page.
+- **Linux**: `pdf-cutter-linux-x86_64`
+- **Windows**: `pdf-cutter-windows-x86_64.exe`
 
-Warning: These binaries are built on Linux, so the Windows binary may not work on all systems.
+```bash
+# Linux/macOS
+./pdf-cutter-linux-x86_64 tui
 
-We recommend building from source for the best compatibility or using Windows Subsystem for Linux (WSL) on Windows.
+# Windows
+pdf-cutter-windows-x86_64.exe tui
+```
 
-#### By Cloning the Repository (need Rust and Cargo installed)
+### Building from Source
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/tourlat/pdfcutter.git
-   ```
-2. Change into the project directory:
-   ```
-   cd pdf-manipulator
-   ```
-3. Build the project:
-   ```
-   cargo build 
-   ```
-4. Run the project:
-   ```
-   cargo run -- <command>
-   ```  Replace `<command>` with the desired operation (e.g., `merge`, `delete`, `help`).
+**Prerequisites**: [Rust and Cargo](https://rustup.rs/)
 
-#### Motivation
+```bash
+git clone https://github.com/tourlat/pdfcutter.git
+cd pdfcutter
+cargo build --release
+```
 
-This project was created to provide a simple and efficient way to manipulate PDF files from the command line, I wanted to stop using online tools for simple tasks like merging or deleting pages from PDFs. With this tool, users can easily manage their PDF documents without relying on third-party services and can keep their files private.
+## Usage
 
-#### Built With
+### Interactive TUI Mode
 
-- [lopdf](https://crates.io/crates/lopdf): Low-level PDF editing (merging, splitting, watermarking).
+Launch the terminal user interface for guided operations:
 
-- [clap](https://crates.io/crates/clap): Command-line argument parsing.
+```bash
+cargo run -- tui
+```
 
-- [RATATUI](https://crates.io/crates/ratatui): Terminal user interface library.
+**Controls:**
+- ↑/↓ arrows: Navigate menus and file lists
+- Alt+↑/↓: Reorder files in merge mode
+- Enter: Select options or add files
+- Tab: Allow writing in input field (for specifying output path in delete mode)
+- P: Allow writing in input field (for specifying pages to delete in delete mode)
+- Esc: Go back or exit
 
+### Command Line Interface
 
-Still in development. 
+#### Merge PDFs
+```bash
+cargo run -- merge -o <output_path> <input_path1> <input_path2> ...
+```
 
-Future plans include adding more PDF manipulation features like splitting.
+#### Delete Pages
+```bash
+cargo run -- delete -i <input_path> -o <output_path> -p "<pages>"
+```
+
+**Page formats:**
+- Single page: `"1"`
+- Page range: `"3-5"`
+- Multiple pages/ranges: `"1,3,5-7"`
+
+## Examples
+
+### Merge Operations
+```bash
+# Merge two PDFs
+cargo run -- merge -o merged.pdf document1.pdf document2.pdf
+
+# Merge multiple PDFs
+cargo run -- merge -o combined.pdf file1.pdf file2.pdf file3.pdf
+```
+
+### Delete Operations
+```bash
+# Remove first page
+cargo run -- delete -i document.pdf -o output.pdf -p "1"
+
+# Remove pages 3 to 5
+cargo run -- delete -i document.pdf -o output.pdf -p "3-5"
+
+# Remove pages 1, 3, and 5-7
+cargo run -- delete -i document.pdf -o output.pdf -p "1,3,5-7"
+```
+
+## Installation Methods
+
+### Option 1: Precompiled Binaries
+Download from [Releases](https://github.com/tourlat/pdfcutter/releases)
+
+⚠️ **Note**: Windows binaries are cross-compiled on Linux. For best compatibility on Windows, consider using WSL or building from source.
+
+### Option 2: Build from Source
+```bash
+git clone https://github.com/tourlat/pdfcutter.git
+cd pdfcutter
+cargo build --release
+```
+
+The binary will be available at `target/release/pdf-cutter`
+
+### Option 3: Install via Cargo
+```bash
+cargo install --git https://github.com/tourlat/pdfcutter.git
+```
+
+## Built With
+
+- **[lopdf](https://crates.io/crates/lopdf)**: Low-level PDF manipulation
+- **[clap](https://crates.io/crates/clap)**: Command-line argument parsing
+- **[ratatui](https://crates.io/crates/ratatui)**: Terminal user interface
+
+## Motivation
+
+This project was created to provide a simple and efficient way to manipulate PDF files from the command line. I wanted to stop using online tools for simple tasks like merging or deleting pages from PDFs. With this tool, users can easily manage their PDF documents without relying on third-party services and keep their files private.
+
+##Development Status
+
+**Status**: In active development
+
+**Planned features:**
+- PDF splitting functionality
+
+## 📝 License
+
+This project is open source. See the repository for license details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues and pull requests.
