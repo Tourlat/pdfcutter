@@ -180,11 +180,15 @@ fn handle_file_selection_input(key: KeyCode, key_event_modifier: KeyModifiers, a
             }
             KeyCode::Enter => {
                 if let Some(ref input) = app.current_input {
-                    if !input.is_empty() && std::path::Path::new(input).exists() {
+                    if input.is_empty() {
+                        app.set_error("Please enter a file path".to_string());
+                    } else if !std::path::Path::new(input).exists() {
+                        app.set_error("File not found or invalid path".to_string());
+                    } else if !is_pdf_file(input) {
+                        app.set_error("File is not a valid PDF".to_string());
+                    } else {
                         app.selected_files.push(input.clone());
                         app.current_input = Some(String::new());
-                    } else {
-                        app.set_error("File not found or invalid path".to_string());
                     }
                 }
             }
@@ -555,10 +559,36 @@ fn handle_result_input(key: KeyCode, app: &mut App) {
     }
 }
 
+/**
+ * Check if a file is a valid PDF by checking its extension and trying to load it.
+ * @param file_path The path to the file to check.
+ * @returns True if the file is a valid PDF, false otherwise.
+ */
+fn is_pdf_file(file_path: &str) -> bool {
+    use std::path::Path;
+    use lopdf::Document;
+    
+    let path = Path::new(file_path);
+    
+    // Check file extension first (quick check)
+    if let Some(extension) = path.extension() {
+        if extension.to_string_lossy().to_lowercase() != "pdf" {
+            return false;
+        }
+    } else {
+        return false;
+    }
+    
+    // Try to load the PDF to verify it's valid
+    match Document::load(file_path) {
+        Ok(_) => true,
+        Err(_) => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
 
     #[test]
     fn test_validate_page_ranges() {
@@ -651,17 +681,17 @@ mod tests {
         handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
         assert!(app.error_message.is_some());
 
-        // Test with valid file (README.md should exist)
+        // Test with valid PDF file (if it exists)
         app.error_message = None;
-        app.current_input = Some("README.md".to_string());
-        handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
-
-        if Path::new("README.md").exists() {
+        if std::path::Path::new("tests/tests_pdf/a.pdf").exists() {
+            app.current_input = Some("tests/tests_pdf/a.pdf".to_string());
+            handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
             assert_eq!(app.selected_files.len(), 1);
-            assert_eq!(app.selected_files[0], "README.md");
+            assert_eq!(app.selected_files[0], "tests/tests_pdf/a.pdf");
             assert!(app.error_message.is_none());
         } else {
-            assert!(app.error_message.is_some());
+            // If no test PDF exists, just add a mock PDF to test file removal
+            app.selected_files.push("mock_file.pdf".to_string());
         }
 
         // Test file removal
@@ -926,5 +956,54 @@ mod tests {
         handle_file_selection_input(KeyCode::Down, KeyModifiers::ALT, &mut app);
         assert_eq!(app.selected_file_index, 2);
         assert_eq!(app.selected_files[2], "file3.pdf");
+    }
+
+    #[test]
+    fn test_is_pdf_file() {
+        // Test with non-PDF extension
+        assert!(!is_pdf_file("test.txt"));
+        assert!(!is_pdf_file("document.doc"));
+        assert!(!is_pdf_file("image.jpg"));
+        
+        // Test with no extension
+        assert!(!is_pdf_file("noextension"));
+        
+        // Test with PDF extension but non-existent file
+        assert!(!is_pdf_file("nonexistent.pdf"));
+        
+        // Test with actual PDF file (if it exists)
+        if std::path::Path::new("tests/tests_pdf/a.pdf").exists() {
+            assert!(is_pdf_file("tests/tests_pdf/a.pdf"));
+        }
+        
+        // Test with README.md (should fail even if exists)
+        assert!(!is_pdf_file("README.md"));
+    }
+
+    #[test]
+    fn test_file_validation_in_input() {
+        let mut app = App::new();
+        app.operation_mode = OperationMode::Merge;
+
+        // Test with non-PDF file
+        app.current_input = Some("README.md".to_string());
+        handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
+        assert!(app.error_message.is_some());
+        assert!(app.error_message.as_ref().unwrap().contains("not a valid PDF"));
+        assert_eq!(app.selected_files.len(), 0);
+
+        // Test with non-existent file
+        app.error_message = None;
+        app.current_input = Some("nonexistent.pdf".to_string());
+        handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
+        assert!(app.error_message.is_some());
+        assert!(app.error_message.as_ref().unwrap().contains("File not found"));
+
+        // Test with empty input
+        app.error_message = None;
+        app.current_input = Some("".to_string());
+        handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
+        assert!(app.error_message.is_some());
+        assert!(app.error_message.as_ref().unwrap().contains("Please enter a file path"));
     }
 }
