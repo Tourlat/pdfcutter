@@ -148,8 +148,50 @@ fn handle_main_input(key: KeyCode, app: &mut App) {
  */
 fn handle_file_selection_input(key: KeyCode, key_event_modifier: KeyModifiers, app: &mut App) {
     if app.error_message.is_some() && key != KeyCode::Esc {
-        // Clear error on any key except Esc
         app.error_message = None;
+        return;
+    }
+
+    if app.editing_input {
+        match key {
+            KeyCode::Char(c) => {
+                if let Some(ref mut input) = app.current_input {
+                    input.push(c);
+                } else {
+                    app.current_input = Some(c.to_string());
+                }
+            }
+            KeyCode::Backspace => {
+                if let Some(ref mut input) = app.current_input {
+                    input.pop();
+                }
+            }
+            KeyCode::Enter => {
+                if let Some(ref input) = app.current_input {
+                    if !input.is_empty() {
+                        match validate_file_input(input) {
+                            Ok(()) => {
+                                app.selected_files.push(input.clone());
+                                app.current_input = Some(String::new());
+                                app.error_message = None;
+                                app.editing_input = false;
+                            }
+                            Err(e) => {
+                                app.set_error(e.to_string());
+                                app.editing_input = false;
+                            }
+                        }
+                    } else {
+                        app.editing_input = false;
+                    }
+                }
+            }
+            KeyCode::Esc => {
+                app.editing_input = false;
+                app.current_input = Some(String::new());
+            }
+            _ => {}
+        }
         return;
     }
 
@@ -169,43 +211,23 @@ fn handle_file_selection_input(key: KeyCode, key_event_modifier: KeyModifiers, a
             }
         }
         (key, KeyModifiers::NONE) | (key, KeyModifiers::SHIFT) => match key {
-            KeyCode::Char(c) => {
-                if let Some(ref mut input) = app.current_input {
-                    input.push(c);
-                } else {
-                    app.current_input = Some(c.to_string());
+            KeyCode::Up => {
+                if app.selected_file_index > 0 {
+                    app.selected_file_index -= 1;
                 }
             }
-            KeyCode::Backspace => {
-                if let Some(ref mut input) = app.current_input {
-                    input.pop();
+            KeyCode::Down => {
+                if app.selected_file_index < app.selected_files.len().saturating_sub(1) {
+                    app.selected_file_index += 1;
                 }
             }
-            KeyCode::Enter => {
-                if let Some(ref input) = app.current_input {
-                    match validate_file_input(input) {
-                        Ok(()) => {
-                            app.selected_files.push(input.clone());
-                            app.current_input = Some(String::new());
-                            app.error_message = None;
-                        }
-                        Err(e) => {
-                            app.set_error(e.to_string());
-                        }
-                    }
-                }
+
+            KeyCode::Tab => {
+                app.editing_input = true;
+                app.current_input = Some(String::new());
             }
-            // Delete selected path
-            KeyCode::Left | KeyCode::Delete => {
-                if app.selected_file_index < app.selected_files.len() {
-                    app.selected_files.remove(app.selected_file_index);
-                    if app.selected_file_index > 0 {
-                        app.selected_file_index -= 1;
-                    }
-                }
-            }
-            // Go to next screen
-            KeyCode::Right => {
+
+            KeyCode::Enter | KeyCode::Right => {
                 let validation_result = match app.operation_mode {
                     OperationMode::Merge => validate_merge_requirements(&app.selected_files),
                     OperationMode::Delete => validate_delete_requirements(&app.selected_files),
@@ -226,29 +248,29 @@ fn handle_file_selection_input(key: KeyCode, key_event_modifier: KeyModifiers, a
                     }
                 }
             }
-            // Nav in paths list
-            KeyCode::Up => {
-                if app.selected_file_index > 0 {
-                    app.selected_file_index -= 1;
-                }
-            }
-            // Nav in paths list
-            KeyCode::Down => {
-                if app.selected_file_index < app.selected_files.len().saturating_sub(1) {
-                    app.selected_file_index += 1;
+
+            KeyCode::Backspace => {
+                if !app.selected_files.is_empty()
+                    && app.selected_file_index < app.selected_files.len()
+                {
+                    app.selected_files.remove(app.selected_file_index);
+                    if app.selected_file_index > 0
+                        && app.selected_file_index >= app.selected_files.len()
+                    {
+                        app.selected_file_index = app.selected_files.len().saturating_sub(1);
+                    }
                 }
             }
 
             KeyCode::Esc => {
                 app.current_screen = CurrentScreen::Main;
             }
+
             _ => {}
         },
-        // Ignore other modifier combinations
         _ => {}
     }
 }
-
 /**
  * Handle input in the delete configuration screen.
  * Allows editing output filename, specifying pages to delete, and starting the deletion.
@@ -413,7 +435,6 @@ fn handle_merge_config_input(key: KeyCode, app: &mut App) {
                 app.output_filename.pop();
             }
             KeyCode::Enter | KeyCode::Tab => {
-                // Sortir du mode édition ET ajouter .pdf si nécessaire
                 app.editing_output = false;
 
                 if !app.output_filename.ends_with(".pdf") && !app.output_filename.is_empty() {
@@ -450,21 +471,18 @@ fn handle_merge_config_input(key: KeyCode, app: &mut App) {
                 app.merge_file_index += 1;
             }
         }
-        KeyCode::Enter => {
-            // Lancer le merge seulement quand on n'est PAS en mode édition
-            match validate_merge_requirements(&app.selected_files) {
-                Ok(()) => {
-                    if app.output_filename.is_empty() {
-                        app.set_error("Output filename cannot be empty".to_string());
-                    } else {
-                        perform_merge(app);
-                    }
-                }
-                Err(e) => {
-                    app.set_error(e.to_string());
+        KeyCode::Enter => match validate_merge_requirements(&app.selected_files) {
+            Ok(()) => {
+                if app.output_filename.is_empty() {
+                    app.set_error("Output filename cannot be empty".to_string());
+                } else {
+                    perform_merge(app);
                 }
             }
-        }
+            Err(e) => {
+                app.set_error(e.to_string());
+            }
+        },
         KeyCode::Esc => {
             app.current_screen = CurrentScreen::FileSelection;
         }
@@ -562,6 +580,10 @@ mod tests {
         let mut app = App::new();
         app.operation_mode = OperationMode::Merge;
 
+        // Start editing input
+        handle_file_selection_input(KeyCode::Tab, KeyModifiers::NONE, &mut app);
+        assert!(app.editing_input);
+
         // Test typing characters
         handle_file_selection_input(KeyCode::Char('t'), KeyModifiers::NONE, &mut app);
         handle_file_selection_input(KeyCode::Char('e'), KeyModifiers::NONE, &mut app);
@@ -573,27 +595,31 @@ mod tests {
         handle_file_selection_input(KeyCode::Backspace, KeyModifiers::NONE, &mut app);
         assert_eq!(app.current_input.as_deref(), Some("tes"));
 
-        // Test with invalid file
+        // Test with invalid file (should set error and exit edit mode)
         handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
         assert!(app.error_message.is_some());
+        assert!(!app.editing_input); // Should exit edit mode even with error
 
         // Test with valid PDF file (if it exists)
         app.error_message = None;
+        app.editing_input = true; // Re-enter edit mode
         if std::path::Path::new("tests/tests_pdf/a.pdf").exists() {
             app.current_input = Some("tests/tests_pdf/a.pdf".to_string());
             handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
             assert_eq!(app.selected_files.len(), 1);
             assert_eq!(app.selected_files[0], "tests/tests_pdf/a.pdf");
             assert!(app.error_message.is_none());
+            assert!(!app.editing_input); // Should exit edit mode after successful add
         } else {
             // If no test PDF exists, just add a mock PDF to test file removal
             app.selected_files.push("mock_file.pdf".to_string());
+            app.editing_input = false; // Make sure we're not in edit mode
         }
 
-        // Test file removal
+        // Test file removal with Backspace (not Left)
         if !app.selected_files.is_empty() {
             app.selected_file_index = 0;
-            handle_file_selection_input(KeyCode::Left, KeyModifiers::NONE, &mut app);
+            handle_file_selection_input(KeyCode::Backspace, KeyModifiers::NONE, &mut app);
             assert_eq!(app.selected_files.len(), 0);
         }
 
@@ -618,6 +644,83 @@ mod tests {
     }
 
     #[test]
+    fn test_file_selection_editing_modes() {
+        let mut app = App::new();
+        app.operation_mode = OperationMode::Merge;
+
+        // Test that editing_input starts as false
+        assert!(!app.editing_input);
+
+        // Test entering edit mode with Tab
+        handle_file_selection_input(KeyCode::Tab, KeyModifiers::NONE, &mut app);
+        assert!(app.editing_input);
+        assert_eq!(app.current_input.as_deref(), Some(""));
+
+        // Test canceling edit mode with Esc
+        handle_file_selection_input(KeyCode::Esc, KeyModifiers::NONE, &mut app);
+        assert!(!app.editing_input);
+        assert_eq!(app.current_input.as_deref(), Some(""));
+
+        // Test entering edit mode again and adding empty string (should exit edit mode)
+        handle_file_selection_input(KeyCode::Tab, KeyModifiers::NONE, &mut app);
+        assert!(app.editing_input);
+        handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
+        assert!(!app.editing_input); // Should exit edit mode with empty input
+
+        // Test navigation mode (when not editing)
+        app.selected_files.push("file1.pdf".to_string());
+        app.selected_files.push("file2.pdf".to_string());
+        app.selected_file_index = 0;
+
+        // Test up/down navigation
+        handle_file_selection_input(KeyCode::Down, KeyModifiers::NONE, &mut app);
+        assert_eq!(app.selected_file_index, 1);
+        assert!(!app.editing_input); // Should still be in navigation mode
+
+        handle_file_selection_input(KeyCode::Up, KeyModifiers::NONE, &mut app);
+        assert_eq!(app.selected_file_index, 0);
+        assert!(!app.editing_input); // Should still be in navigation mode
+
+        // Test that Enter in navigation mode goes to next screen (with enough files)
+        handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
+        assert_eq!(app.current_screen, CurrentScreen::MergeConfig);
+    }
+
+    #[test]
+    fn test_file_reordering_with_alt() {
+        let mut app = App::new();
+        app.operation_mode = OperationMode::Merge;
+        app.selected_files.push("file1.pdf".to_string());
+        app.selected_files.push("file2.pdf".to_string());
+        app.selected_files.push("file3.pdf".to_string());
+
+        // Test moving file down with Alt+Down
+        app.selected_file_index = 0;
+        handle_file_selection_input(KeyCode::Down, KeyModifiers::ALT, &mut app);
+        assert_eq!(app.selected_file_index, 1);
+        assert_eq!(app.selected_files[0], "file2.pdf");
+        assert_eq!(app.selected_files[1], "file1.pdf");
+        assert_eq!(app.selected_files[2], "file3.pdf");
+
+        // Test moving file up with Alt+Up
+        handle_file_selection_input(KeyCode::Up, KeyModifiers::ALT, &mut app);
+        assert_eq!(app.selected_file_index, 0);
+        assert_eq!(app.selected_files[0], "file1.pdf");
+        assert_eq!(app.selected_files[1], "file2.pdf");
+        assert_eq!(app.selected_files[2], "file3.pdf");
+
+        // Test boundary conditions - can't move up from index 0
+        handle_file_selection_input(KeyCode::Up, KeyModifiers::ALT, &mut app);
+        assert_eq!(app.selected_file_index, 0);
+        assert_eq!(app.selected_files[0], "file1.pdf");
+
+        // Test boundary conditions - can't move down from last index
+        app.selected_file_index = 2;
+        handle_file_selection_input(KeyCode::Down, KeyModifiers::ALT, &mut app);
+        assert_eq!(app.selected_file_index, 2);
+        assert_eq!(app.selected_files[2], "file3.pdf");
+    }
+    #[test]
     fn test_handle_merge_config_input() {
         let mut app = App::new();
         app.operation_mode = OperationMode::Merge;
@@ -627,7 +730,7 @@ mod tests {
         // Test entering edit mode
         handle_merge_config_input(KeyCode::Tab, &mut app);
         assert!(app.editing_output);
-        
+
         // Test typing in edit mode
         handle_merge_config_input(KeyCode::Char('o'), &mut app);
         handle_merge_config_input(KeyCode::Char('u'), &mut app);
@@ -862,6 +965,7 @@ mod tests {
 
         // Test with non-PDF file (README.md)
         if std::path::Path::new("README.md").exists() {
+            app.editing_input = true;
             app.current_input = Some("README.md".to_string());
             handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
             assert!(app.error_message.is_some());
@@ -872,10 +976,12 @@ mod tests {
                     .contains("Invalid PDF file")
             );
             assert_eq!(app.selected_files.len(), 0);
+            assert!(!app.editing_input);
         }
 
         // Test with non-existent file
         app.error_message = None;
+        app.editing_input = true;
         app.current_input = Some("nonexistent.pdf".to_string());
         handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
         assert!(app.error_message.is_some());
@@ -885,18 +991,14 @@ mod tests {
                 .unwrap()
                 .contains("File not found")
         );
+        assert!(!app.editing_input);
 
         // Test with empty input
         app.error_message = None;
+        app.editing_input = true;
         app.current_input = Some("".to_string());
         handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
-        assert!(app.error_message.is_some());
-        assert!(
-            app.error_message
-                .as_ref()
-                .unwrap()
-                .contains("File not found")
-        );
+        assert!(!app.editing_input);
     }
 
     #[test]

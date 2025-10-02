@@ -166,7 +166,6 @@ fn draw_file_selection_screen(frame: &mut Frame, app: &App) {
         _ => "📄 File Selection",
     };
 
-    // Title avec macro
     let title = themed_widget!(title, title_text);
     frame.render_widget(title, chunks[0]);
 
@@ -196,21 +195,43 @@ fn draw_file_selection_screen(frame: &mut Frame, app: &App) {
 
     let binding = String::new();
     let input_text = app.current_input.as_ref().unwrap_or(&binding);
+
+    let input_title = if app.editing_input {
+        "Enter file path (Enter to add, Esc to cancel)"
+    } else {
+        "File path (Tab add file)"
+    };
+
     let input_field = if app.error_message.is_some() {
         themed_widget!(
             error_input,
             format!("ERROR: {}", app.error_message.as_ref().unwrap()),
-            "Add File"
+            input_title
         )
+    } else if app.editing_input {
+        Paragraph::new(format!("Path: {}", input_text))
+            .style(app_theme!(input).add_modifier(Modifier::UNDERLINED))
+            .block(Block::default().title(input_title).borders(Borders::ALL))
     } else {
-        themed_widget!(input, format!("Path: {}", input_text), "Add File")
+        themed_widget!(input, format!("Path: {}", input_text), input_title)
     };
     frame.render_widget(input_field, chunks[2]);
 
-    let footer = themed_widget!(
-        footer,
-        "Enter: Add file • ↑↓: Navigate • Reorder: Alt+↑/↓ • <- : Remove selected • -> : Continue • Esc: Back"
-    );
+    let instructions = if app.editing_input {
+        "Enter: Add file | Esc: Cancel"
+    } else {
+        match app.operation_mode {
+            OperationMode::Merge => {
+                "↑/↓: Navigate | Tab: Add file | <-: Delete | Enter: Next | Alt+↑/↓: Reorder | Esc: Back"
+            }
+            OperationMode::Delete => {
+                "↑/↓: Navigate | Tab: Add file | <-: Delete | Enter: Next | Esc: Back"
+            }
+            _ => "↑/↓: Navigate | Tab: Add file | <-: Delete | Enter: Next | Esc: Back",
+        }
+    };
+
+    let footer = themed_widget!(footer, instructions);
     frame.render_widget(footer, chunks[3]);
 
     if let Some(error) = &app.error_message {
@@ -452,11 +473,23 @@ fn draw_help_screen(frame: &mut Frame) {
         Line::from(""),
         Line::from("🧭 Navigation:"),
         Line::from("  • Use number keys (1, 2, 3) to select operations from the main menu."),
-        Line::from("  • In file selection: Enter to add files, ← to remove, → to continue."),
+        Line::from("  • In file selection: Tab/A to add files, D/← to remove, Enter to continue."),
         Line::from("  • In merge config: Tab to edit output filename, Enter to start merging."),
         Line::from("  • Use Esc to go back to previous screen."),
         Line::from(""),
-        Line::from("⌨️  Keyboard Shortcuts:"),
+        Line::from("⌨️  File Selection Shortcuts:"),
+        Line::from("  • Tab: Add file (enter edit mode)"),
+        Line::from("  • ↑↓: Navigate file list"),
+        Line::from("  • Del: Delete selected file"),
+        Line::from("  • Alt+↑↓: Reorder files (merge mode)"),
+        Line::from("  • Enter: Continue to next step"),
+        Line::from(""),
+        Line::from("✏️  Edit Mode (when adding files):"),
+        Line::from("  • Type: Enter file path"),
+        Line::from("  • Enter: Add file and exit edit mode"),
+        Line::from("  • Esc: Cancel and exit edit mode"),
+        Line::from(""),
+        Line::from("🎯 General Shortcuts:"),
         Line::from("  • ↑↓: Navigate lists"),
         Line::from("  • Enter: Confirm/Select"),
         Line::from("  • Tab: Switch input fields"),
