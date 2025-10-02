@@ -1,29 +1,33 @@
 use anyhow::Result;
-use lopdf::{dictionary, Document, Object, ObjectId};
+use lopdf::{Document, Object, ObjectId, dictionary};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Copy a page and all its resources to the target document
-pub fn copy_page_with_resources(source: &Document, page_id: ObjectId, target: &mut Document) -> Result<ObjectId> {
+pub fn copy_page_with_resources(
+    source: &Document,
+    page_id: ObjectId,
+    target: &mut Document,
+) -> Result<ObjectId> {
     let mut visited = HashSet::new();
     let mut to_copy = VecDeque::new();
     let mut id_mapping = HashMap::new();
-    
+
     // Start with the page object
     to_copy.push_back(page_id);
-    
+
     // Breadth-first traversal to collect all referenced objects
     while let Some(current_id) = to_copy.pop_front() {
         if visited.contains(&current_id) {
             continue;
         }
         visited.insert(current_id);
-        
+
         if let Ok(obj) = source.get_object(current_id) {
             // Find all object references in this object
             collect_references(obj, &mut to_copy);
         }
     }
-    
+
     // Copy all collected objects to target document
     for &obj_id in &visited {
         if let Ok(obj) = source.get_object(obj_id) {
@@ -31,14 +35,14 @@ pub fn copy_page_with_resources(source: &Document, page_id: ObjectId, target: &m
             id_mapping.insert(obj_id, new_id);
         }
     }
-    
+
     // Update all references in the copied objects
     for &new_id in id_mapping.values() {
         if let Ok(obj) = target.get_object_mut(new_id) {
             update_references(obj, &id_mapping);
         }
     }
-    
+
     // Return the new page ID
     Ok(id_mapping[&page_id])
 }
@@ -47,15 +51,19 @@ pub fn copy_page_with_resources(source: &Document, page_id: ObjectId, target: &m
 pub fn create_pages_structure(target: &mut Document, page_objects: &[ObjectId]) -> Result<()> {
     // Create Pages root object
     let pages_id = target.new_object_id();
-    let kids: Vec<Object> = page_objects.iter()
-        .map(|&id| Object::Reference(id)).collect();
-    
+    let kids: Vec<Object> = page_objects
+        .iter()
+        .map(|&id| Object::Reference(id))
+        .collect();
+
     let pages_dict = dictionary! {
         "Type" => "Pages",
         "Kids" => kids,
         "Count" => (page_objects.len() as i64),
     };
-    target.objects.insert(pages_id, Object::Dictionary(pages_dict));
+    target
+        .objects
+        .insert(pages_id, Object::Dictionary(pages_dict));
 
     // Update all pages to reference the new Pages parent
     for &page_id in page_objects {
@@ -78,7 +86,7 @@ pub fn create_pages_structure(target: &mut Document, page_objects: &[ObjectId]) 
 
     // Set up the document trailer
     target.trailer.set("Root", catalog_id);
-    
+
     Ok(())
 }
 

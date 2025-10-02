@@ -4,6 +4,7 @@ pub mod ui;
 pub mod utils;
 
 use anyhow::Result;
+use app::{App, CurrentScreen};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
     execute,
@@ -11,8 +12,6 @@ use crossterm::{
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io;
-
-use app::{App, CurrentScreen};
 
 use crate::tui::app::OperationMode;
 use utils::*;

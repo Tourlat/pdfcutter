@@ -71,7 +71,7 @@ impl App {
         self.editing_output = false;
         self.merge_file_index = 0;
         self.editing_pages = false;
-        self.menu_mode_index = 0;   
+        self.menu_mode_index = 0;
         self.editing_input = false;
     }
 
