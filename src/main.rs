@@ -1,9 +1,9 @@
-mod pdf;
 mod cli;
+mod pdf;
 mod tui;
 
-use clap::Parser;
 use anyhow::Result;
+use clap::Parser;
 
 fn main() -> Result<()> {
     let cli = cli::Cli::parse();

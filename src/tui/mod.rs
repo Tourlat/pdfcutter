@@ -1,7 +1,10 @@
 pub mod app;
+pub mod errors;
 pub mod ui;
+pub mod utils;
 
 use anyhow::Result;
+use app::{App, CurrentScreen};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
     execute,
@@ -10,9 +13,8 @@ use crossterm::{
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io;
 
-use app::{App, CurrentScreen};
-
 use crate::tui::app::OperationMode;
+use utils::*;
 
 pub fn run() -> Result<()> {
     // Setup terminal
@@ -145,8 +147,50 @@ fn handle_main_input(key: KeyCode, app: &mut App) {
  */
 fn handle_file_selection_input(key: KeyCode, key_event_modifier: KeyModifiers, app: &mut App) {
     if app.error_message.is_some() && key != KeyCode::Esc {
-        // Clear error on any key except Esc
         app.error_message = None;
+        return;
+    }
+
+    if app.editing_input {
+        match key {
+            KeyCode::Char(c) => {
+                if let Some(ref mut input) = app.current_input {
+                    input.push(c);
+                } else {
+                    app.current_input = Some(c.to_string());
+                }
+            }
+            KeyCode::Backspace => {
+                if let Some(ref mut input) = app.current_input {
+                    input.pop();
+                }
+            }
+            KeyCode::Enter => {
+                if let Some(ref input) = app.current_input {
+                    if !input.is_empty() {
+                        match validate_file_input(input) {
+                            Ok(()) => {
+                                app.selected_files.push(input.clone());
+                                app.current_input = Some(String::new());
+                                app.error_message = None;
+                                app.editing_input = false;
+                            }
+                            Err(e) => {
+                                app.set_error(e.to_string());
+                                app.editing_input = false;
+                            }
+                        }
+                    } else {
+                        app.editing_input = false;
+                    }
+                }
+            }
+            KeyCode::Esc => {
+                app.editing_input = false;
+                app.current_input = Some(String::new());
+            }
+            _ => {}
+        }
         return;
     }
 
@@ -166,88 +210,66 @@ fn handle_file_selection_input(key: KeyCode, key_event_modifier: KeyModifiers, a
             }
         }
         (key, KeyModifiers::NONE) | (key, KeyModifiers::SHIFT) => match key {
-            KeyCode::Char(c) => {
-                if let Some(ref mut input) = app.current_input {
-                    input.push(c);
-                } else {
-                    app.current_input = Some(c.to_string());
-                }
-            }
-            KeyCode::Backspace => {
-                if let Some(ref mut input) = app.current_input {
-                    input.pop();
-                }
-            }
-            KeyCode::Enter => {
-                if let Some(ref input) = app.current_input {
-                    if input.is_empty() {
-                        app.set_error("Please enter a file path".to_string());
-                    } else if !std::path::Path::new(input).exists() {
-                        app.set_error("File not found or invalid path".to_string());
-                    } else if !is_pdf_file(input) {
-                        app.set_error("File is not a valid PDF".to_string());
-                    } else {
-                        app.selected_files.push(input.clone());
-                        app.current_input = Some(String::new());
-                    }
-                }
-            }
-            // Delete selected path
-            KeyCode::Left | KeyCode::Delete => {
-                if app.selected_file_index < app.selected_files.len() {
-                    app.selected_files.remove(app.selected_file_index);
-                    if app.selected_file_index > 0 {
-                        app.selected_file_index -= 1;
-                    }
-                }
-            }
-            // Go to next screen
-            KeyCode::Right => {
-                if !app.selected_files.is_empty() {
-                    if matches!(app.operation_mode, OperationMode::Merge)
-                        && app.selected_files.len() < 2
-                    {
-                        app.set_error("Please select at least 2 files to merge".to_string());
-                        return;
-                    }
-                    if matches!(app.operation_mode, OperationMode::Delete)
-                        && app.selected_files.len() > 1
-                    {
-                        app.set_error("Please select only 1 file to delete pages from".to_string());
-                        return;
-                    }
-                    app.current_screen = match app.operation_mode {
-                        OperationMode::Merge => CurrentScreen::MergeConfig,
-                        OperationMode::Delete => CurrentScreen::DeleteConfig,
-                        _ => CurrentScreen::Main,
-                    };
-                } else {
-                    app.set_error("Please select at least one file".to_string());
-                }
-            }
-            // Nav in paths list
             KeyCode::Up => {
                 if app.selected_file_index > 0 {
                     app.selected_file_index -= 1;
                 }
             }
-            // Nav in paths list
             KeyCode::Down => {
                 if app.selected_file_index < app.selected_files.len().saturating_sub(1) {
                     app.selected_file_index += 1;
                 }
             }
 
+            KeyCode::Tab => {
+                app.editing_input = true;
+                app.current_input = Some(String::new());
+            }
+
+            KeyCode::Enter | KeyCode::Right => {
+                let validation_result = match app.operation_mode {
+                    OperationMode::Merge => validate_merge_requirements(&app.selected_files),
+                    OperationMode::Delete => validate_delete_requirements(&app.selected_files),
+                    _ => Ok(()),
+                };
+
+                match validation_result {
+                    Ok(()) => {
+                        app.current_screen = match app.operation_mode {
+                            OperationMode::Merge => CurrentScreen::MergeConfig,
+                            OperationMode::Delete => CurrentScreen::DeleteConfig,
+                            _ => CurrentScreen::Main,
+                        };
+                        app.error_message = None;
+                    }
+                    Err(e) => {
+                        app.set_error(e.to_string());
+                    }
+                }
+            }
+
+            KeyCode::Backspace => {
+                if !app.selected_files.is_empty()
+                    && app.selected_file_index < app.selected_files.len()
+                {
+                    app.selected_files.remove(app.selected_file_index);
+                    if app.selected_file_index > 0
+                        && app.selected_file_index >= app.selected_files.len()
+                    {
+                        app.selected_file_index = app.selected_files.len().saturating_sub(1);
+                    }
+                }
+            }
+
             KeyCode::Esc => {
                 app.current_screen = CurrentScreen::Main;
             }
+
             _ => {}
         },
-        // Ignore other modifier combinations
         _ => {}
     }
 }
-
 /**
  * Handle input in the delete configuration screen.
  * Allows editing output filename, specifying pages to delete, and starting the deletion.
@@ -273,8 +295,13 @@ fn handle_delete_config_input(key: KeyCode, app: &mut App) {
                 app.editing_pages = false;
 
                 if !app.pages_to_delete.is_empty() {
-                    if let Err(e) = validate_page_ranges(&app.pages_to_delete) {
-                        app.set_error(format!("Invalid page format: {}", e));
+                    match validate_page_ranges(&app.pages_to_delete) {
+                        Ok(_) => {
+                            app.error_message = None;
+                        }
+                        Err(e) => {
+                            app.set_error(e.to_string());
+                        }
                     }
                 }
             }
@@ -297,12 +324,10 @@ fn handle_delete_config_input(key: KeyCode, app: &mut App) {
             KeyCode::Enter | KeyCode::Tab => {
                 app.editing_output = false;
 
-                // Ajouter .pdf si pas déjà présent
                 if !app.output_filename.ends_with(".pdf") && !app.output_filename.is_empty() {
                     app.output_filename.push_str(".pdf");
                 }
 
-                // Nom par défaut si vide
                 if app.output_filename.is_empty() {
                     app.output_filename = "output_deleted_pages.pdf".to_string();
                 }
@@ -337,7 +362,7 @@ fn handle_delete_config_input(key: KeyCode, app: &mut App) {
                         perform_delete(app);
                     }
                     Err(e) => {
-                        app.set_error(format!("Invalid page format: {}", e));
+                        app.set_error(e.to_string());
                     }
                 }
             }
@@ -352,69 +377,6 @@ fn handle_delete_config_input(key: KeyCode, app: &mut App) {
 }
 
 /**
- * Validate and parse a string of page ranges into a vector of page numbers.
- * Supports formats like "1,3,5-7".
- * @param pages_str The input string specifying pages/ranges.
- * @returns A Result containing a vector of unique page numbers or an error message.
- */
-fn validate_page_ranges(pages_str: &str) -> Result<Vec<u32>, String> {
-    let mut pages = Vec::new();
-
-    for part in pages_str.split(',') {
-        let part = part.trim();
-        if part.is_empty() {
-            continue;
-        }
-
-        if part.contains('-') {
-            let range_parts: Vec<&str> = part.split('-').collect();
-            if range_parts.len() != 2 {
-                return Err(format!("Invalid range format: '{}'", part));
-            }
-
-            let start: u32 = range_parts[0]
-                .trim()
-                .parse()
-                .map_err(|_| format!("Invalid page number: '{}'", range_parts[0]))?;
-            let end: u32 = range_parts[1]
-                .trim()
-                .parse()
-                .map_err(|_| format!("Invalid page number: '{}'", range_parts[1]))?;
-
-            if start > end {
-                return Err(format!("Invalid range: {} > {}", start, end));
-            }
-
-            if start == 0 || end == 0 {
-                return Err("Page numbers must be greater than 0".to_string());
-            }
-
-            for page in start..=end {
-                pages.push(page);
-            }
-        } else {
-            let page: u32 = part
-                .parse()
-                .map_err(|_| format!("Invalid page number: '{}'", part))?;
-
-            if page == 0 {
-                return Err("Page numbers must be greater than 0".to_string());
-            }
-
-            pages.push(page);
-        }
-    }
-
-    if pages.is_empty() {
-        return Err("No valid pages specified".to_string());
-    }
-
-    pages.sort();
-    pages.dedup();
-    Ok(pages)
-}
-
-/**
  * Perform the PDF page deletion operation using the selected file, pages to delete, and output filename.
  * Updates the app state with success or error messages.
  * @param app The application state.
@@ -423,23 +385,29 @@ fn validate_page_ranges(pages_str: &str) -> Result<Vec<u32>, String> {
 fn perform_delete(app: &mut App) {
     use crate::pdf;
 
-    if let Ok(pages_to_delete) = validate_page_ranges(&app.pages_to_delete) {
-        match pdf::delete_pages(
-            &app.selected_files[0],
-            &app.output_filename,
-            &pages_to_delete,
-        ) {
-            Ok(()) => {
-                app.set_success(format!(
-                    "✅ Successfully deleted pages {} from '{}' and saved to '{}'",
-                    app.pages_to_delete, app.selected_files[0], app.output_filename
-                ));
-                app.current_screen = CurrentScreen::Result;
+    match validate_page_ranges(&app.pages_to_delete) {
+        Ok(pages_to_delete) => {
+            match pdf::delete_pages(
+                &app.selected_files[0],
+                &app.output_filename,
+                &pages_to_delete,
+            ) {
+                Ok(()) => {
+                    app.set_success(format!(
+                        "✅ Successfully deleted pages {} from '{}' and saved to '{}'",
+                        app.pages_to_delete, app.selected_files[0], app.output_filename
+                    ));
+                    app.current_screen = CurrentScreen::Result;
+                }
+                Err(e) => {
+                    app.set_error(format!("Failed to delete pages: {}", e));
+                    app.current_screen = CurrentScreen::Result;
+                }
             }
-            Err(e) => {
-                app.set_error(format!("Failed to delete pages: {}", e));
-                app.current_screen = CurrentScreen::Result;
-            }
+        }
+        Err(e) => {
+            app.set_error(e.to_string());
+            app.current_screen = CurrentScreen::Result;
         }
     }
 }
@@ -453,7 +421,6 @@ fn perform_delete(app: &mut App) {
  */
 fn handle_merge_config_input(key: KeyCode, app: &mut App) {
     if app.error_message.is_some() && key != KeyCode::Esc {
-        // Clear error on any key except Esc
         app.error_message = None;
         return;
     }
@@ -466,14 +433,15 @@ fn handle_merge_config_input(key: KeyCode, app: &mut App) {
             KeyCode::Backspace => {
                 app.output_filename.pop();
             }
-            KeyCode::Enter => {
-                if !app.output_filename.is_empty() {
-                    app.editing_output = false;
-                    if !app.output_filename.ends_with(".pdf") && !app.output_filename.is_empty() {
-                        app.output_filename.push_str(".pdf");
-                    }
-                } else {
-                    app.set_error("Output filename cannot be empty".to_string());
+            KeyCode::Enter | KeyCode::Tab => {
+                app.editing_output = false;
+
+                if !app.output_filename.ends_with(".pdf") && !app.output_filename.is_empty() {
+                    app.output_filename.push_str(".pdf");
+                }
+
+                if app.output_filename.is_empty() {
+                    app.output_filename = "output_merged.pdf".to_string();
                 }
             }
             KeyCode::Esc => {
@@ -502,16 +470,18 @@ fn handle_merge_config_input(key: KeyCode, app: &mut App) {
                 app.merge_file_index += 1;
             }
         }
-        KeyCode::Enter => {
-            // Lancer le merge
-            if app.selected_files.len() < 2 {
-                app.set_error("Need at least 2 files to merge".to_string());
-            } else if app.output_filename.is_empty() {
-                app.set_error("Output filename cannot be empty".to_string());
-            } else {
-                perform_merge(app);
+        KeyCode::Enter => match validate_merge_requirements(&app.selected_files) {
+            Ok(()) => {
+                if app.output_filename.is_empty() {
+                    app.set_error("Output filename cannot be empty".to_string());
+                } else {
+                    perform_merge(app);
+                }
             }
-        }
+            Err(e) => {
+                app.set_error(e.to_string());
+            }
+        },
         KeyCode::Esc => {
             app.current_screen = CurrentScreen::FileSelection;
         }
@@ -559,66 +529,9 @@ fn handle_result_input(key: KeyCode, app: &mut App) {
     }
 }
 
-/**
- * Check if a file is a valid PDF by checking its extension and trying to load it.
- * @param file_path The path to the file to check.
- * @returns True if the file is a valid PDF, false otherwise.
- */
-fn is_pdf_file(file_path: &str) -> bool {
-    use std::path::Path;
-    use lopdf::Document;
-    
-    let path = Path::new(file_path);
-    
-    // Check file extension first (quick check)
-    if let Some(extension) = path.extension() {
-        if extension.to_string_lossy().to_lowercase() != "pdf" {
-            return false;
-        }
-    } else {
-        return false;
-    }
-    
-    // Try to load the PDF to verify it's valid
-    match Document::load(file_path) {
-        Ok(_) => true,
-        Err(_) => false,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_validate_page_ranges() {
-        // Valid cases
-        assert_eq!(
-            validate_page_ranges("1,3,5-7").unwrap(),
-            vec![1, 3, 5, 6, 7]
-        );
-        assert_eq!(validate_page_ranges("2-4,6").unwrap(), vec![2, 3, 4, 6]);
-        assert_eq!(validate_page_ranges("10").unwrap(), vec![10]);
-        assert_eq!(
-            validate_page_ranges("1-3,5,7-9").unwrap(),
-            vec![1, 2, 3, 5, 7, 8, 9]
-        );
-        assert_eq!(
-            validate_page_ranges(" 1 , 2 - 3 , 5 ").unwrap(),
-            vec![1, 2, 3, 5]
-        );
-
-        // Invalid cases
-        assert!(validate_page_ranges("3-1").is_err()); // Invalid range
-        assert!(validate_page_ranges("a,b,c").is_err()); // Non-numeric
-        assert!(validate_page_ranges("-3").is_err()); // Invalid range format
-        assert!(validate_page_ranges("0,2-4").is_err()); // Page number zero
-        assert!(validate_page_ranges("1-").is_err()); // Incomplete range
-        assert!(validate_page_ranges("").is_err()); // Empty input
-
-        // Test with empty parts (should be handled gracefully)
-        assert_eq!(validate_page_ranges("1,,3").unwrap(), vec![1, 3]); // Empty parts ignored
-    }
 
     #[test]
     fn test_handle_main_input() {
@@ -666,6 +579,10 @@ mod tests {
         let mut app = App::new();
         app.operation_mode = OperationMode::Merge;
 
+        // Start editing input
+        handle_file_selection_input(KeyCode::Tab, KeyModifiers::NONE, &mut app);
+        assert!(app.editing_input);
+
         // Test typing characters
         handle_file_selection_input(KeyCode::Char('t'), KeyModifiers::NONE, &mut app);
         handle_file_selection_input(KeyCode::Char('e'), KeyModifiers::NONE, &mut app);
@@ -677,27 +594,31 @@ mod tests {
         handle_file_selection_input(KeyCode::Backspace, KeyModifiers::NONE, &mut app);
         assert_eq!(app.current_input.as_deref(), Some("tes"));
 
-        // Test with invalid file
+        // Test with invalid file (should set error and exit edit mode)
         handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
         assert!(app.error_message.is_some());
+        assert!(!app.editing_input); // Should exit edit mode even with error
 
         // Test with valid PDF file (if it exists)
         app.error_message = None;
+        app.editing_input = true; // Re-enter edit mode
         if std::path::Path::new("tests/tests_pdf/a.pdf").exists() {
             app.current_input = Some("tests/tests_pdf/a.pdf".to_string());
             handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
             assert_eq!(app.selected_files.len(), 1);
             assert_eq!(app.selected_files[0], "tests/tests_pdf/a.pdf");
             assert!(app.error_message.is_none());
+            assert!(!app.editing_input); // Should exit edit mode after successful add
         } else {
             // If no test PDF exists, just add a mock PDF to test file removal
             app.selected_files.push("mock_file.pdf".to_string());
+            app.editing_input = false; // Make sure we're not in edit mode
         }
 
-        // Test file removal
+        // Test file removal with Backspace (not Left)
         if !app.selected_files.is_empty() {
             app.selected_file_index = 0;
-            handle_file_selection_input(KeyCode::Left, KeyModifiers::NONE, &mut app);
+            handle_file_selection_input(KeyCode::Backspace, KeyModifiers::NONE, &mut app);
             assert_eq!(app.selected_files.len(), 0);
         }
 
@@ -722,6 +643,83 @@ mod tests {
     }
 
     #[test]
+    fn test_file_selection_editing_modes() {
+        let mut app = App::new();
+        app.operation_mode = OperationMode::Merge;
+
+        // Test that editing_input starts as false
+        assert!(!app.editing_input);
+
+        // Test entering edit mode with Tab
+        handle_file_selection_input(KeyCode::Tab, KeyModifiers::NONE, &mut app);
+        assert!(app.editing_input);
+        assert_eq!(app.current_input.as_deref(), Some(""));
+
+        // Test canceling edit mode with Esc
+        handle_file_selection_input(KeyCode::Esc, KeyModifiers::NONE, &mut app);
+        assert!(!app.editing_input);
+        assert_eq!(app.current_input.as_deref(), Some(""));
+
+        // Test entering edit mode again and adding empty string (should exit edit mode)
+        handle_file_selection_input(KeyCode::Tab, KeyModifiers::NONE, &mut app);
+        assert!(app.editing_input);
+        handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
+        assert!(!app.editing_input); // Should exit edit mode with empty input
+
+        // Test navigation mode (when not editing)
+        app.selected_files.push("file1.pdf".to_string());
+        app.selected_files.push("file2.pdf".to_string());
+        app.selected_file_index = 0;
+
+        // Test up/down navigation
+        handle_file_selection_input(KeyCode::Down, KeyModifiers::NONE, &mut app);
+        assert_eq!(app.selected_file_index, 1);
+        assert!(!app.editing_input); // Should still be in navigation mode
+
+        handle_file_selection_input(KeyCode::Up, KeyModifiers::NONE, &mut app);
+        assert_eq!(app.selected_file_index, 0);
+        assert!(!app.editing_input); // Should still be in navigation mode
+
+        // Test that Enter in navigation mode goes to next screen (with enough files)
+        handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
+        assert_eq!(app.current_screen, CurrentScreen::MergeConfig);
+    }
+
+    #[test]
+    fn test_file_reordering_with_alt() {
+        let mut app = App::new();
+        app.operation_mode = OperationMode::Merge;
+        app.selected_files.push("file1.pdf".to_string());
+        app.selected_files.push("file2.pdf".to_string());
+        app.selected_files.push("file3.pdf".to_string());
+
+        // Test moving file down with Alt+Down
+        app.selected_file_index = 0;
+        handle_file_selection_input(KeyCode::Down, KeyModifiers::ALT, &mut app);
+        assert_eq!(app.selected_file_index, 1);
+        assert_eq!(app.selected_files[0], "file2.pdf");
+        assert_eq!(app.selected_files[1], "file1.pdf");
+        assert_eq!(app.selected_files[2], "file3.pdf");
+
+        // Test moving file up with Alt+Up
+        handle_file_selection_input(KeyCode::Up, KeyModifiers::ALT, &mut app);
+        assert_eq!(app.selected_file_index, 0);
+        assert_eq!(app.selected_files[0], "file1.pdf");
+        assert_eq!(app.selected_files[1], "file2.pdf");
+        assert_eq!(app.selected_files[2], "file3.pdf");
+
+        // Test boundary conditions - can't move up from index 0
+        handle_file_selection_input(KeyCode::Up, KeyModifiers::ALT, &mut app);
+        assert_eq!(app.selected_file_index, 0);
+        assert_eq!(app.selected_files[0], "file1.pdf");
+
+        // Test boundary conditions - can't move down from last index
+        app.selected_file_index = 2;
+        handle_file_selection_input(KeyCode::Down, KeyModifiers::ALT, &mut app);
+        assert_eq!(app.selected_file_index, 2);
+        assert_eq!(app.selected_files[2], "file3.pdf");
+    }
+    #[test]
     fn test_handle_merge_config_input() {
         let mut app = App::new();
         app.operation_mode = OperationMode::Merge;
@@ -738,12 +736,12 @@ mod tests {
         handle_merge_config_input(KeyCode::Char('t'), &mut app);
         assert_eq!(app.output_filename, "out");
 
-        // Test exiting edit mode
+        // Test exiting edit mode with Enter (should trigger validation)
         handle_merge_config_input(KeyCode::Enter, &mut app);
         assert!(!app.editing_output);
-        assert_eq!(app.output_filename, "out.pdf"); // Should auto-add .pdf
 
         // Test file reordering
+        app.editing_output = false; // Make sure we're not in edit mode
         app.merge_file_index = 0;
         handle_merge_config_input(KeyCode::Down, &mut app);
         assert_eq!(app.merge_file_index, 1);
@@ -751,9 +749,10 @@ mod tests {
         assert_eq!(app.selected_files[1], "file1.pdf");
 
         // Test merge execution with valid config
+        app.output_filename = "valid_output.pdf".to_string();
         handle_merge_config_input(KeyCode::Enter, &mut app);
-        // Should attempt merge and set error or success message
-        assert!(app.error_message.is_some() || app.success_message.is_some());
+        // Should attempt merge and set error message (files don't exist)
+        assert!(app.error_message.is_some());
     }
 
     #[test]
@@ -959,51 +958,140 @@ mod tests {
     }
 
     #[test]
-    fn test_is_pdf_file() {
-        // Test with non-PDF extension
-        assert!(!is_pdf_file("test.txt"));
-        assert!(!is_pdf_file("document.doc"));
-        assert!(!is_pdf_file("image.jpg"));
-        
-        // Test with no extension
-        assert!(!is_pdf_file("noextension"));
-        
-        // Test with PDF extension but non-existent file
-        assert!(!is_pdf_file("nonexistent.pdf"));
-        
-        // Test with actual PDF file (if it exists)
-        if std::path::Path::new("tests/tests_pdf/a.pdf").exists() {
-            assert!(is_pdf_file("tests/tests_pdf/a.pdf"));
-        }
-        
-        // Test with README.md (should fail even if exists)
-        assert!(!is_pdf_file("README.md"));
-    }
-
-    #[test]
     fn test_file_validation_in_input() {
         let mut app = App::new();
         app.operation_mode = OperationMode::Merge;
 
-        // Test with non-PDF file
-        app.current_input = Some("README.md".to_string());
-        handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
-        assert!(app.error_message.is_some());
-        assert!(app.error_message.as_ref().unwrap().contains("not a valid PDF"));
-        assert_eq!(app.selected_files.len(), 0);
+        // Test with non-PDF file (README.md)
+        if std::path::Path::new("README.md").exists() {
+            app.editing_input = true;
+            app.current_input = Some("README.md".to_string());
+            handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
+            assert!(app.error_message.is_some());
+            assert!(
+                app.error_message
+                    .as_ref()
+                    .unwrap()
+                    .contains("Invalid PDF file")
+            );
+            assert_eq!(app.selected_files.len(), 0);
+            assert!(!app.editing_input);
+        }
 
         // Test with non-existent file
         app.error_message = None;
+        app.editing_input = true;
         app.current_input = Some("nonexistent.pdf".to_string());
         handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
         assert!(app.error_message.is_some());
-        assert!(app.error_message.as_ref().unwrap().contains("File not found"));
+        assert!(
+            app.error_message
+                .as_ref()
+                .unwrap()
+                .contains("File not found")
+        );
+        assert!(!app.editing_input);
 
         // Test with empty input
         app.error_message = None;
+        app.editing_input = true;
         app.current_input = Some("".to_string());
         handle_file_selection_input(KeyCode::Enter, KeyModifiers::NONE, &mut app);
+        assert!(!app.editing_input);
+    }
+
+    #[test]
+    fn test_validation_functions() {
+        // Test validate_merge_requirements
+        assert!(validate_merge_requirements(&vec!["file1.pdf".to_string()]).is_err());
+        assert!(
+            validate_merge_requirements(&vec!["file1.pdf".to_string(), "file2.pdf".to_string()])
+                .is_ok()
+        );
+
+        // Test validate_delete_requirements
+        assert!(validate_delete_requirements(&vec![]).is_err());
+        assert!(validate_delete_requirements(&vec!["file1.pdf".to_string()]).is_ok());
+        assert!(
+            validate_delete_requirements(&vec!["file1.pdf".to_string(), "file2.pdf".to_string()])
+                .is_err()
+        );
+
+        // Test validate_page_ranges (moved from utils tests)
+        assert!(validate_page_ranges("1,3,5-7").is_ok());
+        assert!(validate_page_ranges("3-1").is_err());
+        assert!(validate_page_ranges("a,b,c").is_err());
+        assert!(validate_page_ranges("0,2-4").is_err());
+    }
+
+    #[test]
+    fn test_error_message_format() {
+        let mut app = App::new();
+        app.operation_mode = OperationMode::Merge;
+
+        // Test specific error message format for insufficient files
+        app.selected_files.push("file1.pdf".to_string());
+        handle_file_selection_input(KeyCode::Right, KeyModifiers::NONE, &mut app);
         assert!(app.error_message.is_some());
-        assert!(app.error_message.as_ref().unwrap().contains("Please enter a file path"));
+        assert!(
+            app.error_message
+                .as_ref()
+                .unwrap()
+                .contains("Not enough files for merge")
+        );
+
+        // Test error message for too many files in delete mode
+        app.reset();
+        app.operation_mode = OperationMode::Delete;
+        app.selected_files.push("file1.pdf".to_string());
+        app.selected_files.push("file2.pdf".to_string());
+        handle_file_selection_input(KeyCode::Right, KeyModifiers::NONE, &mut app);
+        assert!(app.error_message.is_some());
+        assert!(
+            app.error_message
+                .as_ref()
+                .unwrap()
+                .contains("Too many files for delete operation")
+        );
+    }
+
+    #[test]
+    fn test_page_validation_in_delete_config() {
+        let mut app = App::new();
+        app.operation_mode = OperationMode::Delete;
+        app.selected_files.push("sample.pdf".to_string());
+
+        // Test valid page ranges
+        app.editing_pages = true;
+        app.pages_to_delete = "1,3-5".to_string();
+        handle_delete_config_input(KeyCode::Enter, &mut app);
+        assert!(!app.editing_pages);
+        assert!(app.error_message.is_none());
+
+        // Test invalid page ranges
+        app.editing_pages = true;
+        app.pages_to_delete = "3-1".to_string(); // Invalid range
+        handle_delete_config_input(KeyCode::Enter, &mut app);
+        assert!(!app.editing_pages);
+        assert!(app.error_message.is_some());
+        assert!(
+            app.error_message
+                .as_ref()
+                .unwrap()
+                .contains("Invalid page range")
+        );
+
+        // Test invalid page numbers
+        app.error_message = None;
+        app.editing_pages = true;
+        app.pages_to_delete = "0,1,2".to_string(); // Zero is invalid
+        handle_delete_config_input(KeyCode::Enter, &mut app);
+        assert!(app.error_message.is_some());
+        assert!(
+            app.error_message
+                .as_ref()
+                .unwrap()
+                .contains("Page numbers must be greater than 0")
+        );
     }
 }

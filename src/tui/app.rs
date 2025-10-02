@@ -35,6 +35,7 @@ pub struct App {
     pub merge_file_index: usize,
 
     pub menu_mode_index: usize,
+    pub editing_input: bool,
 }
 
 impl App {
@@ -53,6 +54,7 @@ impl App {
             merge_file_index: 0,
             editing_pages: false,
             menu_mode_index: 0,
+            editing_input: false,
         }
     }
 
@@ -69,7 +71,8 @@ impl App {
         self.editing_output = false;
         self.merge_file_index = 0;
         self.editing_pages = false;
-        self.menu_mode_index = 0;   
+        self.menu_mode_index = 0;
+        self.editing_input = false;
     }
 
     pub fn set_error(&mut self, message: String) {
