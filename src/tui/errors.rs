@@ -1,5 +1,6 @@
-// src/tui/errors.rs
-#[derive(Debug, thiserror::Error)]
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum TuiError {
     #[error("File not found: {path}")]
     FileNotFound { path: String },
