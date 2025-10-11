@@ -78,6 +78,89 @@ macro_rules! themed_widget {
     };
 }
 
+pub fn create_file_list<'a>(
+    files: &'a [String],
+    title: &'a str,
+    selected_index: Option<usize>,
+) -> (List<'a>, ListState) {
+    let file_items: Vec<ListItem> = files
+        .iter()
+        .enumerate()
+        .map(|(i, file)| ListItem::new(format!("{}. {}", i + 1, file)))
+        .collect();
+
+    let file_list = List::new(file_items)
+        .block(Block::default().title(title).borders(Borders::ALL))
+        .style(app_theme!(normal))
+        .highlight_style(app_theme!(highlight))
+        .highlight_symbol("▶ ");
+
+    let mut list_state = ListState::default();
+    if let Some(index) = selected_index {
+        if index < files.len() {
+            list_state.select(Some(index));
+        }
+    }
+
+    (file_list, list_state)
+}
+
+pub fn create_title(text: &str) -> Paragraph {
+    themed_widget!(title, text)
+}
+
+pub fn create_footer(text: &str) -> Paragraph {
+    themed_widget!(footer, text)
+}
+
+pub fn create_input_field<'a>(
+    content: &'a str,
+    title: &'a str,
+    is_editing: bool,
+    error_message: Option<&'a str>,
+) -> Paragraph<'a> {
+    let display_text = format!(
+        "{}: {}",
+        title.split(' ').next().unwrap_or("Input"),
+        content
+    );
+
+    if let Some(error) = error_message {
+        themed_widget!(error_input, format!("ERROR: {}", error), title)
+    } else if is_editing {
+        Paragraph::new(display_text)
+            .style(app_theme!(input).add_modifier(Modifier::UNDERLINED))
+            .block(Block::default().title(title).borders(Borders::ALL))
+    } else {
+        themed_widget!(input, display_text, title)
+    }
+}
+
+pub fn create_standard_layout(frame_area: Rect, sections: &[u16]) -> Vec<Rect> {
+    let constraints: Vec<Constraint> = sections
+        .iter()
+        .map(|&size| {
+            if size == 0 {
+                Constraint::Min(0)
+            } else {
+                Constraint::Length(size)
+            }
+        })
+        .collect();
+
+    Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(constraints)
+        .split(frame_area)
+        .to_vec()
+}
+
+pub fn render_error_if_exists(frame: &mut Frame, error_message: Option<&str>) {
+    if let Some(error) = error_message {
+        draw_error_popup(frame, error);
+    }
+}
+
 pub fn ui(frame: &mut Frame, app: &App) {
     match app.current_screen {
         CurrentScreen::Main => draw_main_screen(frame, app),
@@ -97,23 +180,11 @@ pub fn ui(frame: &mut Frame, app: &App) {
  * @param frame The frame to draw on.
  * @param app The application state.
  */
-fn draw_main_screen(frame: &mut Frame, _app: &App) {
-    let area = frame.area();
+fn draw_main_screen(frame: &mut Frame, app: &App) {
+    let chunks = create_standard_layout(frame.area(), &[3, 0, 3]);
 
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3), // Title
-            Constraint::Min(0),    // Menu
-            Constraint::Length(3), // Footer
-        ])
-        .split(area);
+    frame.render_widget(create_title("📄 PDF Cutter - TUI"), chunks[0]);
 
-    // Title avec macro
-    let title = themed_widget!(title, "📄 PDF Cutter - TUI");
-    frame.render_widget(title, chunks[0]);
-
-    // Menu options avec les couleurs du thème
     let menu_items = vec![
         ListItem::new("1. 🔗 Merge PDFs").style(app_theme!(menu_merge)),
         ListItem::new("2. ✂️  Delete Pages").style(app_theme!(menu_delete)),
@@ -134,14 +205,13 @@ fn draw_main_screen(frame: &mut Frame, _app: &App) {
     frame.render_stateful_widget(
         menu,
         chunks[1],
-        &mut ListState::default().with_selected(Some(_app.menu_mode_index)),
+        &mut ListState::default().with_selected(Some(app.menu_mode_index)),
     );
 
-    let footer = themed_widget!(
-        footer,
-        "↑↓: Navigate • Enter: Select • 1-3: Direct select • q: Quit"
+    frame.render_widget(
+        create_footer("↑↓: Navigate • Enter: Select • 1-3: Direct select • q: Quit"),
+        chunks[2],
     );
-    frame.render_widget(footer, chunks[2]);
 }
 
 /**
@@ -150,15 +220,7 @@ fn draw_main_screen(frame: &mut Frame, _app: &App) {
  *
 */
 fn draw_file_selection_screen(frame: &mut Frame, app: &App) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3), // Title
-            Constraint::Min(0),    // File List
-            Constraint::Length(3), // Input Zone
-            Constraint::Length(3), // Footer Zone
-        ])
-        .split(frame.area());
+    let chunks = create_standard_layout(frame.area(), &[3, 0, 3, 3]);
 
     let title_text = match app.operation_mode {
         OperationMode::Merge => "📄 Select PDFs to Merge",
@@ -166,55 +228,33 @@ fn draw_file_selection_screen(frame: &mut Frame, app: &App) {
         _ => "📄 File Selection",
     };
 
-    let title = themed_widget!(title, title_text);
-    frame.render_widget(title, chunks[0]);
+    frame.render_widget(create_title(title_text), chunks[0]);
 
-    let file_items: Vec<ListItem> = app
-        .selected_files
-        .iter()
-        .enumerate()
-        .map(|(i, file)| ListItem::new(format!("{}. {}", i + 1, file)))
-        .collect();
-
-    let file_list = List::new(file_items)
-        .block(
-            Block::default()
-                .title("Selected Files")
-                .borders(Borders::ALL),
-        )
-        .style(app_theme!(normal))
-        .highlight_style(app_theme!(highlight))
-        .highlight_symbol("▶ ");
-
-    let mut list_state = ListState::default();
-    if !app.selected_files.is_empty() && app.selected_file_index < app.selected_files.len() {
-        list_state.select(Some(app.selected_file_index));
-    }
-
+    let (file_list, mut list_state) = create_file_list(
+        &app.selected_files,
+        "Selected Files",
+        if app.selected_files.is_empty() {
+            None
+        } else {
+            Some(app.selected_file_index)
+        },
+    );
     frame.render_stateful_widget(file_list, chunks[1], &mut list_state);
 
     let binding = String::new();
     let input_text = app.current_input.as_ref().unwrap_or(&binding);
-
     let input_title = if app.editing_input {
         "Enter file path (Enter to add, Esc to cancel)"
     } else {
         "File path (Tab add file)"
     };
 
-    let input_field = if app.error_message.is_some() {
-        themed_widget!(
-            error_input,
-            format!("ERROR: {}", app.error_message.as_ref().unwrap()),
-            input_title
-        )
-    } else if app.editing_input {
-        Paragraph::new(format!("Path: {}", input_text))
-            .style(app_theme!(input).add_modifier(Modifier::UNDERLINED))
-            .block(Block::default().title(input_title).borders(Borders::ALL))
-    } else {
-        themed_widget!(input, format!("Path: {}", input_text), input_title)
-    };
+    let input_field = create_input_field(
+        input_text,
+        input_title,
+        app.editing_input,
+        app.error_message.as_deref(),
+    );
     frame.render_widget(input_field, chunks[2]);
 
     let instructions = if app.editing_input {
@@ -231,12 +271,8 @@ fn draw_file_selection_screen(frame: &mut Frame, app: &App) {
         }
     };
 
-    let footer = themed_widget!(footer, instructions);
-    frame.render_widget(footer, chunks[3]);
-
-    if let Some(error) = &app.error_message {
-        draw_error_popup(frame, error);
-    }
+    frame.render_widget(create_footer(instructions), chunks[3]);
+    render_error_if_exists(frame, app.error_message.as_deref());
 }
 
 /**
@@ -244,73 +280,32 @@ fn draw_file_selection_screen(frame: &mut Frame, app: &App) {
  * Display selected files, output filename input, and footer instructions.
  */
 fn draw_merge_config_screen(frame: &mut Frame, app: &App) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3), // Title
-            Constraint::Min(0),    // File List
-            Constraint::Length(5), // Output filename
-            Constraint::Length(3), // Instructions
-        ])
-        .split(frame.area());
+    let chunks = create_standard_layout(frame.area(), &[3, 0, 3, 3]);
 
-    let title_text = "🔗 Merge Configuration";
-    let title = themed_widget!(title, title_text);
-    frame.render_widget(title, chunks[0]);
+    frame.render_widget(create_title("🔗 Merge Configuration"), chunks[0]);
 
-    let file_items: Vec<ListItem> = app
-        .selected_files
-        .iter()
-        .enumerate()
-        .map(|(i, file)| ListItem::new(format!("{}. {}", i + 1, file)))
-        .collect();
-
-    let file_list = List::new(file_items)
-        .block(
-            Block::default()
-                .title("Files to Merge (in order)")
-                .borders(Borders::ALL),
-        )
-        .style(app_theme!(normal))
-        .highlight_style(app_theme!(highlight))
-        .highlight_symbol("▶ ");
-
-    frame.render_stateful_widget(
-        file_list,
-        chunks[1],
-        &mut ListState::default().with_selected(Some(app.merge_file_index)),
+    let (file_list, mut list_state) = create_file_list(
+        &app.selected_files,
+        "Files to Merge (in order)",
+        Some(app.merge_file_index),
     );
+    frame.render_stateful_widget(file_list, chunks[1], &mut list_state);
 
     let output_text = if app.output_filename.is_empty() {
-        "merged_output.pdf".to_string()
+        "merged_output.pdf"
     } else {
-        app.output_filename.clone()
+        &app.output_filename
     };
 
-    let output_title = if app.editing_output {
-        "Output Filename (editing)"
-    } else {
-        "Output Filename"
-    };
-
-    let output_field = if app.editing_output {
-        Paragraph::new(format!("Output: {}", output_text))
-            .style(app_theme!(input).add_modifier(Modifier::UNDERLINED))
-            .block(Block::default().title(output_title).borders(Borders::ALL))
-    } else {
-        themed_widget!(input, format!("Output: {}", output_text), output_title)
-    };
+    let output_field = create_input_field(output_text, "Output Filename", app.editing_output, None);
     frame.render_widget(output_field, chunks[2]);
 
-    let instructions = themed_widget!(
-        footer,
-        "Tab: Edit output name • Enter: Start merge • Esc: Back"
+    frame.render_widget(
+        create_footer("Tab: Edit output name • Enter: Start merge • Esc: Back"),
+        chunks[3],
     );
-    frame.render_widget(instructions, chunks[3]);
 
-    if let Some(error) = &app.error_message {
-        draw_error_popup(frame, error);
-    }
+    render_error_if_exists(frame, app.error_message.as_deref());
 }
 
 /**
@@ -318,98 +313,42 @@ fn draw_merge_config_screen(frame: &mut Frame, app: &App) {
  * Display selected files, pages to delete input, output filename input, and footer instructions.
  */
 fn draw_delete_config_screen(frame: &mut Frame, app: &App) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3), // Title
-            Constraint::Min(0),    // File name
-            Constraint::Length(5), // Page deletion input
-            Constraint::Length(5), // Output filename
-            Constraint::Length(3), // Instructions
-        ])
-        .split(frame.area());
+    let chunks = create_standard_layout(frame.area(), &[3, 0, 5, 5, 3]);
 
-    let title_text = "✂️ Delete Configuration";
-    let title = themed_widget!(title, title_text);
-    frame.render_widget(title, chunks[0]);
+    frame.render_widget(create_title("✂️ Delete Configuration"), chunks[0]);
 
-    let file_items: Vec<ListItem> = app
-        .selected_files
-        .iter()
-        .enumerate()
-        .map(|(i, file)| ListItem::new(format!("{}. {}", i + 1, file)))
-        .collect();
-
-    let file_list = List::new(file_items)
-        .block(
-            Block::default()
-                .title("File to Delete Pages From")
-                .borders(Borders::ALL),
-        )
-        .style(app_theme!(normal))
-        .highlight_style(app_theme!(highlight))
-        .highlight_symbol("▶ ");
-
-    frame.render_stateful_widget(
-        file_list,
-        chunks[1],
-        &mut ListState::default().with_selected(Some(app.merge_file_index)),
+    let (file_list, mut list_state) = create_file_list(
+        &app.selected_files,
+        "File to Delete Pages From",
+        Some(app.merge_file_index),
     );
+    frame.render_stateful_widget(file_list, chunks[1], &mut list_state);
 
-    let pages_text = if app.pages_to_delete.is_empty() {
-        "".to_string()
-    } else {
-        app.pages_to_delete.clone()
-    };
-
-    let pages_field = if app.editing_pages {
-        Paragraph::new(format!("Pages to Delete: {}", pages_text))
-            .style(app_theme!(input).add_modifier(Modifier::UNDERLINED))
-            .block(
-                Block::default()
-                    .title("Pages to Delete (e.g., 1,3-5)")
-                    .borders(Borders::ALL),
-            )
-    } else {
-        themed_widget!(
-            input,
-            format!("Pages to Delete: {}", pages_text),
-            "Pages to Delete (e.g., 1,3-5)"
-        )
-    };
-
+    let pages_field = create_input_field(
+        &app.pages_to_delete,
+        "Pages to Delete (e.g., 1,3-5)",
+        app.editing_pages,
+        None,
+    );
     frame.render_widget(pages_field, chunks[2]);
 
     let output_text = if app.output_filename.is_empty() {
-        "modified_output.pdf".to_string()
+        "modified_output.pdf"
     } else {
-        app.output_filename.clone()
+        &app.output_filename
     };
 
-    let output_title = if app.editing_output {
-        "Output Filename (editing)"
-    } else {
-        "Output Filename"
-    };
-
-    let output_field = if app.editing_output {
-        Paragraph::new(format!("Output: {}", output_text))
-            .style(app_theme!(input).add_modifier(Modifier::UNDERLINED))
-            .block(Block::default().title(output_title).borders(Borders::ALL))
-    } else {
-        themed_widget!(input, format!("Output: {}", output_text), output_title)
-    };
+    let output_field = create_input_field(output_text, "Output Filename", app.editing_output, None);
     frame.render_widget(output_field, chunks[3]);
 
-    let instructions = themed_widget!(
-        footer,
-        "p: Edit pages to delete • Tab: Edit output name • Enter: Start delete • Esc: Back"
+    frame.render_widget(
+        create_footer(
+            "p: Edit pages to delete • Tab: Edit output name • Enter: Start delete • Esc: Back",
+        ),
+        chunks[4],
     );
-    frame.render_widget(instructions, chunks[4]);
 
-    if let Some(error) = &app.error_message {
-        draw_error_popup(frame, error);
-    }
+    render_error_if_exists(frame, app.error_message.as_deref());
 }
 
 // fn draw_processing_screen(frame: &mut Frame, app: &App) {
@@ -451,18 +390,9 @@ fn draw_result_screen(frame: &mut Frame, app: &App) {
 }
 
 fn draw_help_screen(frame: &mut Frame) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3), // Title
-            Constraint::Min(0),    // content
-            Constraint::Length(3), // Footer
-        ])
-        .split(frame.area());
+    let chunks = create_standard_layout(frame.area(), &[3, 0, 3]);
 
-    let title_text = "❓ Help";
-    let title = themed_widget!(title, title_text);
-    frame.render_widget(title, chunks[0]);
+    frame.render_widget(create_title("❓ Help"), chunks[0]);
 
     let help_text = Text::from_iter([
         Line::from("📄 PDF Cutter TUI Help"),
@@ -506,9 +436,7 @@ fn draw_help_screen(frame: &mut Frame) {
         .alignment(Alignment::Left);
 
     frame.render_widget(help_paragraph, chunks[1]);
-
-    let footer = themed_widget!(footer, "Press Esc to return to main menu");
-    frame.render_widget(footer, chunks[2]);
+    frame.render_widget(create_footer("Press Esc to return to main menu"), chunks[2]);
 }
 
 fn draw_exit_screen(frame: &mut Frame, _app: &App) {
