@@ -39,6 +39,21 @@ pub enum Commands {
         pages: String,
     },
 
+    /// Split a PDF into multiple smaller PDFs
+    Split {
+        // Input PDF file
+        #[arg(short, long)]
+        input: String,
+
+        // Pages slices (e.g., "1-3", "5", "7-9", "1,3,5-7")
+        #[arg(short = 'p', long)]
+        pages: String,
+
+        // Output file prefix, e.g., "output_" will create files like "output_1.pdf", "output_2.pdf", etc.
+        #[arg(short, long)]
+        output_prefix: String,
+    },
+
     /// Launch Terminal User Interface
     Tui,
 }
