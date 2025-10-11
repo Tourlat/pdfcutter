@@ -42,7 +42,7 @@ pub enum Commands {
     /// Split a PDF into multiple smaller PDFs
     Split {
         // Input PDF file
-        #[arg(short, long)]
+        #[arg(short = 'i', long)]
         input: String,
 
         // Pages slices (e.g., "1-3", "5", "7-9", "1,3,5-7")
@@ -50,8 +50,12 @@ pub enum Commands {
         pages: String,
 
         // Output file prefix, e.g., "output_" will create files like "output_1.pdf", "output_2.pdf", etc.
-        #[arg(short, long)]
+        #[arg(short = 'o', long = "output-prefix")]
         output_prefix: String,
+
+        /// Use named segments format (name:pages)
+        #[arg(long)]
+        named: bool,
     },
 
     /// Launch Terminal User Interface

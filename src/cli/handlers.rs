@@ -17,7 +17,8 @@ pub fn handle_command(command: Option<Commands>) -> Result<()> {
             input,
             pages,
             output_prefix,
-        }) => handle_split(input, pages, output_prefix),
+            named,
+        }) => handle_split(input, output_prefix, pages, named),
         None => {
             bail!("No command provided. Use --help for usage or --tui for interactive mode.");
         }
@@ -54,22 +55,21 @@ fn handle_delete(input: String, output: String, pages: String) -> Result<()> {
     Ok(())
 }
 
-fn handle_split(input: String, pages: String, output_prefix: String) -> Result<()> {
+fn handle_split(input: String, output_prefix: String, pages: String, named: bool) -> Result<()> {
     if !Path::new(&input).exists() {
         bail!("Input file does not exist: {}", input);
     }
 
-    let pages_to_split = parse_page_ranges(&pages)?
-        .into_iter()
-        .map(|p| p as i32)
-        .collect::<Vec<i32>>();
+    let output_files = if named {
+        pdf::split_pdfs_named(&input, &output_prefix, &pages)?
+    } else {
+        pdf::split_pdfs(&input, &output_prefix, &pages)?
+    };
 
-    let nb_pdfs_to_generate = pages_to_split.len();
-    pdf::split_pdfs(&input, &output_prefix, &pages_to_split, nb_pdfs_to_generate)?;
-    println!(
-        "✅ Split '{}' into {} PDFs with prefix '{}'",
-        input, nb_pdfs_to_generate, output_prefix
-    );
+    println!("✅ Split '{}' into {} files:", input, output_files.len());
+    for file in output_files {
+        println!("  - {}", file);
+    }
     Ok(())
 }
 
