@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
             ext: ""
           - target: x86_64-pc-windows-gnu
             ext: ".exe"
