@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*' 
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin_ext: ""
+          - os: windows-latest
+            target: x86_64-pc-windows-gnu
+            bin_ext: ".exe"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions/setup-rust@v2
+        with:
+          rust-version: stable
+          target: ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdfcutter-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/pdfcutter${{ matrix.bin_ext }}
+
+  create-release:
+    name: Create GitHub Release
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all built binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: ./dist
+
+      - name: Create release with binaries
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG_NAME" \
+            --repo="${{ github.repository }}" \
+            --title="pdfcutter ${TAG_NAME#v}" \
+            --generate-notes \
+            ./dist/**/*
