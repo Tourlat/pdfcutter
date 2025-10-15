@@ -3,83 +3,43 @@ name: Release
 on:
   push:
     tags:
-      - 'v*' 
+      - v*
 
 permissions:
   contents: write
 
 jobs:
-  build-and-release:
-    name: Build and Release
-    runs-on: ${{ matrix.os }}
+  create-release:
+    name: Create release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+        run: |
+          gh release create "$tag" \
+              --repo="$GITHUB_REPOSITORY" \
+              --title="PDF Cutter ${tag#v}" \
+              --generate-notes
+
+  build-and-upload:
+    name: Build ${{ matrix.target }}
+    needs: create-release
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            bin_ext: ""
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc 
-            bin_ext: ".exe"
-
+          - target: x86_64-pc-windows-gnu
+            archive: zip
+          - target: x86_64-unknown-linux-musl
+            archive: tar.gz
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          targets: ${{ matrix.target }}
-
-      - name: Build release binary
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pdf-cutter-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/pdf-cutter${{ matrix.bin_ext }}
-
-  create-release:
-    name: Create GitHub Release
-    needs: build-and-release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code  
-        uses: actions/checkout@v4
-        
-      - name: Download all built binaries
-        uses: actions/download-artifact@v4
-        with:
-          path: ./dist
-
-      - name: Display downloaded files (debug)
-        run: |
-          echo "Downloaded files:"
-          find ./dist -type f -exec ls -la {} \;
-
-      - name: Rename binaries for release
-        run: |
-          mkdir -p ./release-files
-          # Linux binary
-          if [ -f "./dist/pdf-cutter-x86_64-unknown-linux-gnu/pdf-cutter" ]; then
-            cp "./dist/pdf-cutter-x86_64-unknown-linux-gnu/pdf-cutter" "./release-files/pdf-cutter-linux-x86_64"
-          fi
-          # Windows binary
-          if [ -f "./dist/pdf-cutter-x86_64-pc-windows-msvc/pdf-cutter.exe" ]; then
-            cp "./dist/pdf-cutter-x86_64-pc-windows-msvc/pdf-cutter.exe" "./release-files/pdf-cutter-windows-x86_64.exe"
-          fi
-          echo "Release files:"
-          ls -la ./release-files/
-
-      - name: Create release with binaries
+      - uses: actions/checkout@v4
+      - name: Compile and upload
+        uses: rust-build/rust-build.action@v1.4.5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ github.ref_name }}
-        run: |
-          gh release create "$TAG_NAME" \
-            --repo="${{ github.repository }}" \
-            --title="PDF Cutter ${TAG_NAME#v}" \
-            --generate-notes \
-            ./release-files/*
+        with:
+          RUSTTARGET: ${{ matrix.target }}
+          ARCHIVE_TYPES: ${{ matrix.archive }}
