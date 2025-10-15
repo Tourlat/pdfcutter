@@ -42,7 +42,7 @@ jobs:
         run: |
           gh release create "$TAG" \
             --repo="${{ github.repository }}" \
-            --title="PDF Cutter ${TAG#v}" \
+            --title="${TAG}" \
             --generate-notes \
             || echo "Release already exists"
 
