@@ -20,17 +20,15 @@ jobs:
             ext: ".exe"
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-rust@v2
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          rust-version: stable
+          targets: ${{ matrix.target }}
 
-      - name: Add Windows target
-        if: matrix.target == 'x86_64-pc-windows-gnu'
-        run: rustup target add x86_64-pc-windows-gnu
-
-      - name: Build binary
+      - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Create or update release
@@ -44,11 +42,11 @@ jobs:
             --generate-notes \
             || echo "Release already exists"
 
-      - name: Upload binary to release
+      - name: Upload binaries to release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload "${{ github.ref_name }}" \
-            "target/${{ matrix.target }}/release/pdf-cutter${{ matrix.ext }}" \
+            "target/${{ matrix.target }}/release/pdfcutter${{ matrix.ext }}" \
             --repo="${{ github.repository }}" \
             --clobber
