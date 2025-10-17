@@ -1,4 +1,5 @@
-use crate::tui::app::{App, CurrentScreen};
+use crate::tui::app::App;
+use crate::tui::state::CurrentScreen;
 use crate::tui::utils::validate_page_ranges;
 use crossterm::event::KeyCode;
 
@@ -10,26 +11,26 @@ use crossterm::event::KeyCode;
  *
  */
 pub fn handle_delete_config_input(key: KeyCode, app: &mut App) {
-    if app.error_message.is_some() && key != KeyCode::Esc {
-        app.error_message = None;
+    if app.ui_state.get_error_message().is_some() && key != KeyCode::Esc {
+        app.ui_state.clear_message();
         return;
     }
 
-    if app.editing_pages {
+    if app.delete_config.editing_pages {
         match key {
             KeyCode::Char(c) => {
-                app.pages_to_delete.push(c);
+                app.delete_config.pages_to_delete.push(c);
             }
             KeyCode::Backspace => {
-                app.pages_to_delete.pop();
+                app.delete_config.pages_to_delete.pop();
             }
             KeyCode::Enter | KeyCode::Tab => {
-                app.editing_pages = false;
+                app.delete_config.editing_pages = false;
 
-                if !app.pages_to_delete.is_empty() {
-                    match validate_page_ranges(&app.pages_to_delete) {
+                if !app.delete_config.pages_to_delete.is_empty() {
+                    match validate_page_ranges(&app.delete_config.pages_to_delete) {
                         Ok(_) => {
-                            app.error_message = None;
+                            app.ui_state.clear_message();
                         }
                         Err(e) => {
                             app.set_error(e.to_string());
@@ -38,34 +39,36 @@ pub fn handle_delete_config_input(key: KeyCode, app: &mut App) {
                 }
             }
             KeyCode::Esc => {
-                app.editing_pages = false;
+                app.delete_config.editing_pages = false;
             }
             _ => {}
         }
         return;
     }
 
-    if app.editing_output {
+    if app.delete_config.editing_output {
         match key {
             KeyCode::Char(c) => {
-                app.output_filename.push(c);
+                app.delete_config.output_filename.push(c);
             }
             KeyCode::Backspace => {
-                app.output_filename.pop();
+                app.delete_config.output_filename.pop();
             }
             KeyCode::Enter | KeyCode::Tab => {
-                app.editing_output = false;
+                app.delete_config.editing_output = false;
 
-                if !app.output_filename.ends_with(".pdf") && !app.output_filename.is_empty() {
-                    app.output_filename.push_str(".pdf");
+                if !app.delete_config.output_filename.ends_with(".pdf")
+                    && !app.delete_config.output_filename.is_empty()
+                {
+                    app.delete_config.output_filename.push_str(".pdf");
                 }
 
-                if app.output_filename.is_empty() {
-                    app.output_filename = "output_deleted_pages.pdf".to_string();
+                if app.delete_config.output_filename.is_empty() {
+                    app.delete_config.output_filename = "output_deleted_pages.pdf".to_string();
                 }
             }
             KeyCode::Esc => {
-                app.editing_output = false;
+                app.delete_config.editing_output = false;
             }
             _ => {}
         }
@@ -74,22 +77,22 @@ pub fn handle_delete_config_input(key: KeyCode, app: &mut App) {
 
     match key {
         KeyCode::Char('p') | KeyCode::Char('P') => {
-            app.editing_pages = true;
+            app.delete_config.editing_pages = true;
         }
 
         KeyCode::Tab => {
-            app.editing_output = true;
+            app.delete_config.editing_output = true;
         }
 
         KeyCode::Enter => {
-            if app.selected_files.is_empty() {
+            if app.file_state.selected_files.is_empty() {
                 app.set_error("No file selected".to_string());
-            } else if app.pages_to_delete.is_empty() {
+            } else if app.delete_config.pages_to_delete.is_empty() {
                 app.set_error("Please specify pages to delete".to_string());
-            } else if app.output_filename.is_empty() {
+            } else if app.delete_config.output_filename.is_empty() {
                 app.set_error("Output filename cannot be empty".to_string());
             } else {
-                match validate_page_ranges(&app.pages_to_delete) {
+                match validate_page_ranges(&app.delete_config.pages_to_delete) {
                     Ok(_) => {
                         perform_delete(app);
                     }
@@ -117,17 +120,19 @@ pub fn handle_delete_config_input(key: KeyCode, app: &mut App) {
 pub fn perform_delete(app: &mut App) {
     use crate::pdf;
 
-    match validate_page_ranges(&app.pages_to_delete) {
+    match validate_page_ranges(&app.delete_config.pages_to_delete) {
         Ok(pages_to_delete) => {
             match pdf::delete_pages(
-                &app.selected_files[0],
-                &app.output_filename,
+                &app.file_state.selected_files[0],
+                &app.delete_config.output_filename,
                 &pages_to_delete,
             ) {
                 Ok(()) => {
                     app.set_success(format!(
                         "✅ Successfully deleted pages {} from '{}' and saved to '{}'",
-                        app.pages_to_delete, app.selected_files[0], app.output_filename
+                        app.delete_config.pages_to_delete,
+                        app.file_state.selected_files[0],
+                        app.delete_config.output_filename
                     ));
                     app.current_screen = CurrentScreen::Result;
                 }

@@ -60,6 +60,22 @@ pub fn validate_delete_requirements(files: &[String]) -> TuiResult<()> {
 }
 
 /**
+ * Check if exactly one file is provided for a split operation.
+ * @param files The list of file paths to validate.
+ * @returns Ok(()) if valid, Err(TuiError) if invalid.
+ * @throws TuiError if there are no files or too many files for splitting.
+ */
+pub fn validate_split_requirements(files: &[String]) -> TuiResult<()> {
+    if files.is_empty() {
+        return Err(TuiError::NoFilesSelected);
+    }
+    if files.len() != 1 {
+        return Err(TuiError::TooManyFiles { count: files.len() });
+    }
+    Ok(())
+}
+
+/**
  * Check if the given file path points to a valid PDF file by attempting to load it.
  * @param path The file path to check.
  * @returns true if the file is a valid PDF, false otherwise.

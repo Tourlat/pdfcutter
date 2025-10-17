@@ -1,89 +1,115 @@
-#[derive(Debug, PartialEq)]
-pub enum CurrentScreen {
-    Main,
-    FileSelection,
-    MergeConfig,
-    DeleteConfig,
-    SplitConfig,
-    // Processing,
-    Result,
-    Help,
-    Exiting,
-}
-
-#[derive(PartialEq, Debug)]
-pub enum OperationMode {
-    None,
-    Merge,
-    Delete,
-    Split,
-}
+use super::state::{
+    CurrentScreen, DeleteConfig, FileState, MergeConfig, OperationMode, SplitConfig, UiState,
+};
 
 pub struct App {
     pub current_screen: CurrentScreen,
     pub operation_mode: OperationMode,
 
-    pub selected_files: Vec<String>,
-    pub output_filename: String,
-    pub pages_to_delete: String,
-
-    pub error_message: Option<String>,
-    pub success_message: Option<String>,
-
-    pub current_input: Option<String>, // Input text
-    pub selected_file_index: usize,
-    pub editing_output: bool,
-    pub editing_pages: bool,
-    pub merge_file_index: usize,
-
-    pub menu_mode_index: usize,
-    pub editing_input: bool,
+    pub file_state: FileState,
+    pub merge_config: MergeConfig,
+    pub delete_config: DeleteConfig,
+    pub split_config: SplitConfig,
+    pub ui_state: UiState,
 }
 
 impl App {
-    pub fn new() -> App {
-        App {
+    pub fn new() -> Self {
+        Self {
             current_screen: CurrentScreen::Main,
             operation_mode: OperationMode::None,
-            selected_files: Vec::new(),
-            output_filename: String::new(),
-            pages_to_delete: String::new(),
-            error_message: None,
-            success_message: None,
-            selected_file_index: 0,
-            current_input: None,
-            editing_output: false,
-            merge_file_index: 0,
-            editing_pages: false,
-            menu_mode_index: 0,
-            editing_input: false,
+            file_state: FileState::new(),
+            merge_config: MergeConfig::new(),
+            delete_config: DeleteConfig::new(),
+            split_config: SplitConfig::new(),
+            ui_state: UiState::new(),
         }
     }
 
     pub fn reset(&mut self) {
-        self.selected_files.clear();
-        self.output_filename.clear();
-        self.pages_to_delete.clear();
-        self.error_message = None;
-        self.success_message = None;
         self.operation_mode = OperationMode::None;
         self.current_screen = CurrentScreen::Main;
-        self.selected_file_index = 0;
-        self.current_input = None;
-        self.editing_output = false;
-        self.merge_file_index = 0;
-        self.editing_pages = false;
-        self.menu_mode_index = 0;
-        self.editing_input = false;
+        self.file_state.reset();
+        self.merge_config.reset();
+        self.delete_config.reset();
+        self.split_config.reset();
+        self.ui_state.reset();
     }
 
     pub fn set_error(&mut self, message: String) {
-        self.error_message = Some(message);
-        self.success_message = None;
+        self.ui_state.set_error(message);
     }
 
     pub fn set_success(&mut self, message: String) {
-        self.success_message = Some(message);
-        self.error_message = None;
+        self.ui_state.set_success(message);
+    }
+
+    pub fn selected_files(&self) -> &Vec<String> {
+        &self.file_state.selected_files
+    }
+
+    pub fn selected_files_mut(&mut self) -> &mut Vec<String> {
+        &mut self.file_state.selected_files
+    }
+
+    pub fn selected_file_index(&self) -> usize {
+        self.file_state.selected_file_index
+    }
+
+    pub fn merge_file_index(&self) -> usize {
+        self.file_state.merge_file_index
+    }
+
+    pub fn error_message(&self) -> Option<&str> {
+        self.ui_state.get_error_message()
+    }
+
+    pub fn success_message(&self) -> Option<&str> {
+        self.ui_state.get_success_message()
+    }
+
+    pub fn current_input(&self) -> Option<&str> {
+        self.ui_state.current_input.as_deref()
+    }
+
+    pub fn editing_input(&self) -> bool {
+        self.ui_state.editing_input
+    }
+
+    pub fn menu_mode_index(&self) -> usize {
+        self.ui_state.menu_mode_index
+    }
+
+    pub fn set_selected_file_index(&mut self, index: usize) {
+        self.file_state.selected_file_index = index;
+    }
+
+    pub fn set_merge_file_index(&mut self, index: usize) {
+        self.file_state.merge_file_index = index;
+    }
+
+    pub fn set_menu_mode_index(&mut self, index: usize) {
+        self.ui_state.menu_mode_index = index;
+    }
+
+    pub fn set_editing_input(&mut self, editing: bool) {
+        self.ui_state.editing_input = editing;
+    }
+
+    pub fn set_current_input(&mut self, input: Option<String>) {
+        self.ui_state.current_input = input;
+    }
+
+    pub fn add_file(&mut self, file_path: String) {
+        self.file_state.add_file(file_path);
+    }
+
+    pub fn remove_current_file(&mut self) {
+        let index = self.file_state.selected_file_index;
+        self.file_state.remove_file(index);
+    }
+
+    pub fn swap_files(&mut self, index1: usize, index2: usize) {
+        self.file_state.swap_files(index1, index2);
     }
 }

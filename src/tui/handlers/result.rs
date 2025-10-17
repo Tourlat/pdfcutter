@@ -1,5 +1,6 @@
+use crate::tui::app::App;
+use crate::tui::state::CurrentScreen;
 use crossterm::event::KeyCode;
-use crate::tui::app::{App, CurrentScreen};
 
 /**
  * Handle input in the result screen.
