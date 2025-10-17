@@ -41,6 +41,9 @@ macro_rules! app_theme {
     (menu_delete) => {
         Style::default().fg(Color::Red)
     };
+    (menu_split) => {
+        Style::default().fg(Color::Blue)
+    };
     (menu_help) => {
         Style::default().fg(Color::Yellow)
     };
@@ -167,6 +170,7 @@ pub fn ui(frame: &mut Frame, app: &App) {
         CurrentScreen::FileSelection => draw_file_selection_screen(frame, app),
         CurrentScreen::MergeConfig => draw_merge_config_screen(frame, app),
         CurrentScreen::DeleteConfig => draw_delete_config_screen(frame, app),
+        CurrentScreen::SplitConfig => draw_split_config_screen(frame, app),
         // CurrentScreen::Processing => draw_processing_screen(frame, app),
         CurrentScreen::Result => draw_result_screen(frame, app),
         CurrentScreen::Help => draw_help_screen(frame),
@@ -188,7 +192,8 @@ fn draw_main_screen(frame: &mut Frame, app: &App) {
     let menu_items = vec![
         ListItem::new("1. 🔗 Merge PDFs").style(app_theme!(menu_merge)),
         ListItem::new("2. ✂️  Delete Pages").style(app_theme!(menu_delete)),
-        ListItem::new("3. ❓ Help").style(app_theme!(menu_help)),
+        ListItem::new("3. 🔪  Split Pages").style(app_theme!(menu_split)),
+        ListItem::new("4. ❓ Help").style(app_theme!(menu_help)),
         ListItem::new("q. 🚪 Exit").style(app_theme!(menu_exit)),
     ];
 
@@ -387,6 +392,35 @@ fn draw_result_screen(frame: &mut Frame, app: &App) {
 
     let area = centered_rect(60, 25, frame.area());
     frame.render_widget(result_paragraph, area);
+}
+
+fn draw_split_config_screen(frame: &mut Frame, app: &App) {
+    let chunks = create_standard_layout(frame.area(), &[3, 0, 3, 3]);
+
+    frame.render_widget(create_title("🔪 Split Configuration"), chunks[0]);
+
+    let (file_list, mut list_state) = create_file_list(
+        &app.selected_files,
+        "File to Split",
+        Some(app.merge_file_index),
+    );
+    frame.render_stateful_widget(file_list, chunks[1], &mut list_state);
+
+    let output_text = if app.output_filename.is_empty() {
+        "split_output.pdf"
+    } else {
+        &app.output_filename
+    };
+
+    let output_field = create_input_field(output_text, "Output Filename", app.editing_output, None);
+    frame.render_widget(output_field, chunks[2]);
+
+    frame.render_widget(
+        create_footer("Tab: Edit output name • Enter: Start split • Esc: Back"),
+        chunks[3],
+    );
+
+    render_error_if_exists(frame, app.error_message.as_deref());
 }
 
 fn draw_help_screen(frame: &mut Frame) {

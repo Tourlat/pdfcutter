@@ -50,6 +50,9 @@ pub fn validate_merge_requirements(files: &[String]) -> TuiResult<()> {
  * @throws TuiError if there are too many files for deletion.
  */
 pub fn validate_delete_requirements(files: &[String]) -> TuiResult<()> {
+    if files.is_empty() {
+        return Err(TuiError::NoFilesSelected);
+    }
     if files.len() != 1 {
         return Err(TuiError::TooManyFiles { count: files.len() });
     }

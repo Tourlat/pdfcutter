@@ -4,6 +4,7 @@ pub enum CurrentScreen {
     FileSelection,
     MergeConfig,
     DeleteConfig,
+    SplitConfig,
     // Processing,
     Result,
     Help,
@@ -15,6 +16,7 @@ pub enum OperationMode {
     None,
     Merge,
     Delete,
+    Split,
 }
 
 pub struct App {
