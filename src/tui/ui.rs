@@ -456,7 +456,7 @@ fn draw_split_config_screen(frame: &mut Frame, app: &App) {
     } else if app.split_config.editing_prefix {
         "Enter: Save prefix • Esc: Cancel"
     } else {
-        "S: Edit segments • Space: Toggle named segments • Tab: Edit prefix • Enter: Split • Esc: Back"
+        "S: Edit segments • Space: Toggle named segments • P: Edit prefix • Enter: Split • Esc: Back"
     };
 
     frame.render_widget(create_footer(instructions), chunks[5]);
