@@ -85,7 +85,7 @@ pub fn handle_delete_config_input(key: KeyCode, app: &mut App) {
         }
 
         KeyCode::Enter => {
-            if app.file_state.selected_files.is_empty() {
+            if app.selected_files().is_empty() {
                 app.set_error("No file selected".to_string());
             } else if app.delete_config.pages_to_delete.is_empty() {
                 app.set_error("Please specify pages to delete".to_string());
@@ -123,7 +123,7 @@ pub fn perform_delete(app: &mut App) {
     match validate_page_ranges(&app.delete_config.pages_to_delete) {
         Ok(pages_to_delete) => {
             match pdf::delete_pages(
-                &app.file_state.selected_files[0],
+                &app.selected_files()[0],
                 &app.delete_config.output_filename,
                 &pages_to_delete,
             ) {
@@ -131,7 +131,7 @@ pub fn perform_delete(app: &mut App) {
                     app.set_success(format!(
                         "✅ Successfully deleted pages {} from '{}' and saved to '{}'",
                         app.delete_config.pages_to_delete,
-                        app.file_state.selected_files[0],
+                        app.selected_files()[0],
                         app.delete_config.output_filename
                     ));
                     app.current_screen = CurrentScreen::Result;

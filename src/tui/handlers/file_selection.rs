@@ -31,17 +31,17 @@ pub fn handle_file_selection_input(key: KeyCode, key_event_modifier: KeyModifier
                 if !input_text.is_empty() {
                     match validate_file_input(input_text) {
                         Ok(()) => {
-                            app.file_state.add_file(input_text.to_string());
+                            app.add_file(input_text.to_string());
                             app.ui_state.stop_input();
                             app.ui_state.clear_message();
                         }
                         Err(e) => {
                             app.set_error(e.to_string());
-                            app.ui_state.editing_input = false;
+                            app.set_editing_input(false);
                         }
                     }
                 } else {
-                    app.ui_state.editing_input = false;
+                    app.set_editing_input(false);
                 }
             }
             KeyCode::Esc => {
@@ -54,61 +54,47 @@ pub fn handle_file_selection_input(key: KeyCode, key_event_modifier: KeyModifier
 
     match (key, key_event_modifier) {
         (KeyCode::Up, KeyModifiers::ALT) => {
-            if app.file_state.selected_file_index > 0 {
-                app.file_state.selected_files.swap(
-                    app.file_state.selected_file_index,
-                    app.file_state.selected_file_index - 1,
-                );
-                app.file_state.selected_file_index -= 1;
+            if app.selected_file_index() > 0 {
+                let current_index = app.selected_file_index();
+                app.swap_files(current_index, current_index - 1);
+                app.set_selected_file_index(current_index - 1);
             }
         }
         (KeyCode::Down, KeyModifiers::ALT) => {
-            if app.file_state.selected_file_index
-                < app.file_state.selected_files.len().saturating_sub(1)
-            {
-                app.file_state.selected_files.swap(
-                    app.file_state.selected_file_index,
-                    app.file_state.selected_file_index + 1,
-                );
-                app.file_state.selected_file_index += 1;
+            if app.selected_file_index() < app.files_len().saturating_sub(1) {
+                let current_index = app.selected_file_index();
+                app.swap_files(current_index, current_index + 1);
+                app.set_selected_file_index(current_index + 1);
             }
         }
         (key, KeyModifiers::NONE) | (key, KeyModifiers::SHIFT) => match key {
             KeyCode::Up => {
-                if app.file_state.selected_file_index > 0 {
-                    app.file_state.selected_file_index -= 1;
+                if app.selected_file_index() > 0 {
+                    app.set_selected_file_index(app.selected_file_index() - 1);
                 }
             }
             KeyCode::Down => {
-                if app.file_state.selected_file_index
-                    < app.file_state.selected_files.len().saturating_sub(1)
-                {
-                    app.file_state.selected_file_index += 1;
+                if app.selected_file_index() < app.files_len().saturating_sub(1) {
+                    app.set_selected_file_index(app.selected_file_index() + 1);
                 }
             }
 
             KeyCode::Tab => {
                 if (app.operation_mode == OperationMode::Delete
                     || app.operation_mode == OperationMode::Split)
-                    && !app.file_state.selected_files.is_empty()
+                    && !app.files_is_empty()
                 {
                     return;
                 }
-                app.ui_state.editing_input = true;
-                app.ui_state.current_input = Some(String::new());
+                app.set_editing_input(true);
+                app.set_current_input(Some(String::new()));
             }
 
             KeyCode::Enter | KeyCode::Right => {
                 let validation_result = match app.operation_mode {
-                    OperationMode::Merge => {
-                        validate_merge_requirements(&app.file_state.selected_files)
-                    }
-                    OperationMode::Delete => {
-                        validate_delete_requirements(&app.file_state.selected_files)
-                    }
-                    OperationMode::Split => {
-                        validate_split_requirements(&app.file_state.selected_files)
-                    }
+                    OperationMode::Merge => validate_merge_requirements(&app.selected_files()),
+                    OperationMode::Delete => validate_delete_requirements(&app.selected_files()),
+                    OperationMode::Split => validate_split_requirements(&app.selected_files()),
                     _ => Ok(()),
                 };
 
@@ -129,18 +115,8 @@ pub fn handle_file_selection_input(key: KeyCode, key_event_modifier: KeyModifier
             }
 
             KeyCode::Backspace => {
-                if !app.file_state.selected_files.is_empty()
-                    && app.file_state.selected_file_index < app.file_state.selected_files.len()
-                {
-                    app.file_state
-                        .selected_files
-                        .remove(app.file_state.selected_file_index);
-                    if app.file_state.selected_file_index > 0
-                        && app.file_state.selected_file_index >= app.file_state.selected_files.len()
-                    {
-                        app.file_state.selected_file_index =
-                            app.file_state.selected_files.len().saturating_sub(1);
-                    }
+                if !app.files_is_empty() && app.selected_file_index() < app.files_len() {
+                    app.remove_current_file();
                 }
             }
 

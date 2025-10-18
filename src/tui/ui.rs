@@ -254,7 +254,7 @@ fn draw_file_selection_screen(frame: &mut Frame, app: &App) {
     let (file_list, mut list_state) = create_file_list(
         &app.selected_files(),
         "Selected Files",
-        if app.selected_files().is_empty() {
+        if app.file_state.is_empty() {
             None
         } else {
             Some(app.selected_file_index())
@@ -283,12 +283,12 @@ fn draw_file_selection_screen(frame: &mut Frame, app: &App) {
     } else {
         match app.operation_mode {
             OperationMode::Merge => {
-                "↑/↓: Navigate | Tab: Add file | <-: Delete | Enter: Next | Alt+↑/↓: Reorder | Esc: Back"
+                "↑/↓: Navigate • Tab: Add file • <-: Delete • Enter: Next • Alt+↑/↓: Reorder • Esc: Back"
             }
             OperationMode::Delete => {
-                "↑/↓: Navigate | Tab: Add file | <-: Delete | Enter: Next | Esc: Back"
+                "↑/↓: Navigate • Tab: Add file • <-: Delete • Enter: Next • Esc: Back"
             }
-            _ => "↑/↓: Navigate | Tab: Add file | <-: Delete | Enter: Next | Esc: Back",
+            _ => "↑/↓: Navigate • Tab: Add file • <-: Delete • Enter: Next • Esc: Back",
         }
     };
 
@@ -452,11 +452,11 @@ fn draw_split_config_screen(frame: &mut Frame, app: &App) {
     frame.render_widget(output_field, chunks[4]);
 
     let instructions = if app.split_config.editing_segments {
-        "Enter: Save segments | Esc: Cancel"
+        "Enter: Save segments • Esc: Cancel"
     } else if app.split_config.editing_prefix {
-        "Enter: Save prefix | Esc: Cancel"
+        "Enter: Save prefix • Esc: Cancel"
     } else {
-        "S: Edit segments | Space: Toggle named segments | Tab: Edit prefix | Enter: Split | Esc: Back"
+        "S: Edit segments • Space: Toggle named segments • Tab: Edit prefix • Enter: Split • Esc: Back"
     };
 
     frame.render_widget(create_footer(instructions), chunks[5]);

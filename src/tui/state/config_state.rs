@@ -16,14 +16,6 @@ impl MergeConfig {
         self.output_filename.clear();
         self.editing_output = false;
     }
-
-    pub fn get_default_filename(&self) -> &str {
-        if self.output_filename.is_empty() {
-            "merged_output.pdf"
-        } else {
-            &self.output_filename
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -49,14 +41,6 @@ impl DeleteConfig {
         self.output_filename.clear();
         self.editing_pages = false;
         self.editing_output = false;
-    }
-
-    pub fn get_default_filename(&self) -> &str {
-        if self.output_filename.is_empty() {
-            "modified_output.pdf"
-        } else {
-            &self.output_filename
-        }
     }
 }
 
@@ -86,25 +70,5 @@ impl SplitConfig {
         self.use_named_segments = false;
         self.editing_segments = false;
         self.editing_prefix = false;
-    }
-
-    pub fn get_default_segments(&self) -> &str {
-        if self.segments.is_empty() {
-            if self.use_named_segments {
-                "intro:1-3,chapter1:4-10"
-            } else {
-                "1-3,5,7-9"
-            }
-        } else {
-            &self.segments
-        }
-    }
-
-    pub fn get_default_prefix(&self) -> &str {
-        if self.output_prefix.is_empty() {
-            "split_output"
-        } else {
-            &self.output_prefix
-        }
     }
 }

@@ -20,7 +20,8 @@ pub fn handle_split_config_input(key: KeyCode, app: &mut App) {
                 app.split_config.editing_segments = false;
                 if app.split_config.segments.is_empty() {
                     if app.split_config.use_named_segments {
-                        app.split_config.segments = "intro:1-3,chapter1:4-10,conclusion:11".to_string();
+                        app.split_config.segments =
+                            "intro:1-3,chapter1:4-10,conclusion:11".to_string();
                     } else {
                         app.split_config.segments = "1-3,5,7-9".to_string();
                     }
@@ -68,7 +69,7 @@ pub fn handle_split_config_input(key: KeyCode, app: &mut App) {
             app.split_config.editing_prefix = true;
         }
         KeyCode::Enter => {
-            if app.file_state.selected_files.is_empty() {
+            if app.selected_files().is_empty() {
                 app.set_error("No file selected".to_string());
             } else if app.split_config.segments.is_empty() {
                 app.set_error("Please specify page segments".to_string());
@@ -90,13 +91,13 @@ pub fn perform_split(app: &mut App) {
 
     let result = if app.split_config.use_named_segments {
         pdf::split::split_pdfs_named(
-            &app.file_state.selected_files[0],
+            &app.selected_files()[0],
             &app.split_config.output_prefix,
             &app.split_config.segments,
         )
     } else {
         pdf::split::split_pdfs(
-            &app.file_state.selected_files[0],
+            &app.selected_files()[0],
             &app.split_config.output_prefix,
             &app.split_config.segments,
         )

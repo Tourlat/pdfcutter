@@ -53,12 +53,4 @@ impl FileState {
     pub fn len(&self) -> usize {
         self.selected_files.len()
     }
-
-    pub fn get_file(&self, index: usize) -> Option<&String> {
-        self.selected_files.get(index)
-    }
-
-    pub fn get_current_file(&self) -> Option<&String> {
-        self.selected_files.get(self.selected_file_index)
-    }
 }

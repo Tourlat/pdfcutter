@@ -112,4 +112,12 @@ impl App {
     pub fn swap_files(&mut self, index1: usize, index2: usize) {
         self.file_state.swap_files(index1, index2);
     }
+
+    pub fn files_len(&self) -> usize {
+        self.file_state.len()
+    }
+
+    pub fn files_is_empty(&self) -> bool {
+        self.file_state.is_empty()
+    }
 }

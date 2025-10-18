@@ -51,18 +51,7 @@ impl UiState {
         }
     }
 
-    pub fn has_error(&self) -> bool {
-        matches!(self.message, Some(MessageType::Error(_)))
-    }
 
-    pub fn has_success(&self) -> bool {
-        matches!(self.message, Some(MessageType::Success(_)))
-    }
-
-    pub fn start_input(&mut self) {
-        self.editing_input = true;
-        self.current_input = Some(String::new());
-    }
 
     pub fn stop_input(&mut self) {
         self.editing_input = false;
