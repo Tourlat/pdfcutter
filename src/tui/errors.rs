@@ -14,6 +14,9 @@ pub enum TuiError {
     #[error("Not enough files for merge (need at least 2, got {count})")]
     InsufficientFiles { count: usize },
 
+    #[error("No files selected for delete operation (need exactly 1)")]
+    NoFilesSelected,
+
     #[error("Too many files for delete operation (need exactly 1, got {count})")]
     TooManyFiles { count: usize },
 

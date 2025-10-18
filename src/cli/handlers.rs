@@ -13,6 +13,12 @@ pub fn handle_command(command: Option<Commands>) -> Result<()> {
             output,
             pages,
         }) => handle_delete(input, output, pages),
+        Some(Commands::Split {
+            input,
+            pages,
+            output_prefix,
+            named,
+        }) => handle_split(input, output_prefix, pages, named),
         None => {
             bail!("No command provided. Use --help for usage or --tui for interactive mode.");
         }
@@ -46,6 +52,24 @@ fn handle_delete(input: String, output: String, pages: String) -> Result<()> {
         "✅ Deleted pages {} from '{}' and saved to '{}'",
         pages, input, output
     );
+    Ok(())
+}
+
+fn handle_split(input: String, output_prefix: String, pages: String, named: bool) -> Result<()> {
+    if !Path::new(&input).exists() {
+        bail!("Input file does not exist: {}", input);
+    }
+
+    let output_files = if named {
+        pdf::split_pdfs_named(&input, &output_prefix, &pages)?
+    } else {
+        pdf::split_pdfs(&input, &output_prefix, &pages)?
+    };
+
+    println!("✅ Split '{}' into {} files:", input, output_files.len());
+    for file in output_files {
+        println!("  - {}", file);
+    }
     Ok(())
 }
 
