@@ -246,6 +246,7 @@ fn draw_file_selection_screen(frame: &mut Frame, app: &App) {
     let title_text = match app.operation_mode {
         OperationMode::Merge => "📄 Select PDFs to Merge",
         OperationMode::Delete => "📄 Select PDF for Page Deletion",
+        OperationMode::Split => "📄 Select PDF to Split",
         _ => "📄 File Selection",
     };
 
@@ -568,6 +569,29 @@ fn draw_exit_screen(frame: &mut Frame, _app: &App) {
     let area = centered_rect(60, 25, frame.area());
     frame.render_widget(exit_paragraph, area);
 }
+
+// fn draw_processing_screen(frame: &mut Frame, app: &App) {
+//     frame.render_widget(Clear, frame.area());
+
+//     let popup_block = Block::default()
+//         .title("Processing")
+//         .borders(Borders::ALL)
+//         .style(Style::default().bg(Color::DarkGray));
+
+//     let spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+//     let spinner = spinner_frames[(app.frame_count / 2) % spinner_frames.len()];
+//     let processing_text = Text::styled(
+//         format!("Processing... Please wait. {}", spinner),
+//         Style::default().fg(Color::Yellow),
+//     );  
+//     let processing_paragraph = Paragraph::new(processing_text)
+//         .block(popup_block)
+//         .wrap(Wrap { trim: false })
+//         .alignment(Alignment::Center);
+    
+//     let area = centered_rect(60, 25, frame.area());
+//     frame.render_widget(processing_paragraph, area);
+// }
 
 fn draw_error_popup(frame: &mut Frame, message: &str) {
     frame.render_widget(Clear, frame.area());

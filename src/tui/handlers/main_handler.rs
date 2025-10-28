@@ -22,12 +22,13 @@ pub fn handle_main_input(key: KeyCode, app: &mut App) {
             app.current_screen = CurrentScreen::FileSelection;
         }
         KeyCode::Char('3') => {
-            app.set_menu_mode_index(3);
+            app.reset();
+            app.set_menu_mode_index(2);
             app.operation_mode = OperationMode::Split;
             app.current_screen = CurrentScreen::FileSelection;
         }
         KeyCode::Char('4') => {
-            app.set_menu_mode_index(2);
+            app.set_menu_mode_index(3);
             app.current_screen = CurrentScreen::Help;
         }
         KeyCode::Up => {

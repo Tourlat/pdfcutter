@@ -13,6 +13,7 @@ pub enum CurrentScreen {
     MergeConfig,
     DeleteConfig,
     SplitConfig,
+    // Processing,
     Result,
     Help,
     Exiting,
